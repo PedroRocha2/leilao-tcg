@@ -1,0 +1,47 @@
+{% extends "minha_conta/_layout.html" %}
+{% block titulo %}Meus lances · Minha Conta{% endblock %}
+{% macro lista(itens) %}
+<ul class="meus-lances">
+  {% for item in itens %}
+  <li class="meu-lance">
+    <img class="meu-lance__foto" src="{{ url_for('static', filename=item.foto) }}" alt="" width="600" height="838" loading="lazy" decoding="async">
+    <div class="meu-lance__carta">
+      <h4 class="meu-lance__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=item.id) }}">{{ item.nome }}</a></h4>
+      <p class="meu-lance__ed" translate="no">{{ item.edicao }}</p>
+      <p class="status{% if not item.aberto %} status--fechado{% endif %}"><span class="status__ponto" aria-hidden="true"></span><span class="vh">Status do leilão: </span>{{ item.situacao }}</p>
+    </div>
+    <dl class="meu-lance__numeros">
+      <div><dt>Seu maior lance</dt><dd>{{ item.seu_maior }}</dd></div>
+      <div><dt>Lance atual</dt><dd>{{ item.atual }}</dd></div>
+      <div><dt>Situação</dt><dd{% if item.lidera %} class="destaque"{% endif %}>{{ item.posicao }}</dd></div>
+      <div>
+        {% if item.aberto %}
+        <dt>Termina em</dt><dd><span data-contagem data-alvo="{{ item.fim_iso }}">{{ item.restante }}</span></dd>
+        {% else %}
+        <dt>Terminou</dt><dd>{{ item.fim_quando }}</dd>
+        {% endif %}
+      </div>
+    </dl>
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+{% block secao %}
+<h2 id="titulo-secao">Meus lances</h2>
+{% if abertos or encerrados %}
+  {% if abertos %}
+  <h3 class="subtitulo">Recebendo lances</h3>
+  {{ lista(abertos) }}
+  {% endif %}
+  {% if encerrados %}
+  <h3 class="subtitulo">Encerrados</h3>
+  {{ lista(encerrados) }}
+  {% endif %}
+{% else %}
+<div class="vazio vazio--compacto">
+  <p class="vazio__titulo">Você ainda não deu nenhum lance.</p>
+  <p>Os leilões em que você der lances aparecem aqui, com o lance atual e se você está liderando.</p>
+  <p><a class="botao botao--primario" href="{{ url_for('leiloes.listar') }}">Ver leilões ativos</a></p>
+</div>
+{% endif %}
+{% endblock %}

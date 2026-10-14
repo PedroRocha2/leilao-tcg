@@ -1,0 +1,30 @@
+{% extends "minha_conta/_layout.html" %}
+{% block titulo %}Carteira · Minha Conta{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Carteira</h2>
+<div class="saldo">
+  <p class="rotulo">Saldo disponível</p>
+  <p class="valor-grande">{{ saldo }}</p>
+  <p class="saldo__nota">Consulta apenas. O saldo não é usado para dar lances.</p>
+</div>
+
+<h3 class="subtitulo">Extrato</h3>
+{% if extrato %}
+<table class="tabela tabela--extrato">
+  <caption class="vh">Movimentações da carteira, da mais recente para a mais antiga</caption>
+  <thead>
+    <tr><th scope="col">Data e hora</th><th scope="col">Descrição</th><th scope="col">Tipo</th><th scope="col" class="direita">Valor</th></tr>
+  </thead>
+  <tbody>
+    {% for m in extrato %}
+    <tr><td>{{ m.quando }}</td><td>{{ m.descricao }}</td><td>{{ m.tipo }}</td><td class="direita">{{ m.valor }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="vazio vazio--compacto">
+  <p class="vazio__titulo">Nenhuma movimentação na sua carteira.</p>
+  <p>Cada crédito ou débito aparece aqui com data, descrição e valor.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{# Campo de formulário com rótulo, ajuda e erro ligados ao input por aria-describedby. #}
+{% import "_icones.html" as icone %}
+{% macro campo(nome, rotulo, valor="", erro=None, tipo="text", autocomplete="off", inputmode=None, ajuda=None,
+               placeholder=None, foco=false, extras="") %}
+{% set descricao = [] %}
+{% if ajuda %}{% set _ = descricao.append("ajuda-" ~ nome) %}{% endif %}
+{% if erro %}{% set _ = descricao.append("erro-" ~ nome) %}{% endif %}
+<div class="campo{% if erro %} campo--erro{% endif %}">
+  <label for="{{ nome }}">{{ rotulo }}</label>
+  <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}" autocomplete="{{ autocomplete }}"
+         {% if inputmode %}inputmode="{{ inputmode }}"{% endif %}
+         {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+         {% if tipo != "password" %}value="{{ valor }}"{% endif %}
+         {% if descricao %}aria-describedby="{{ descricao|join(' ') }}"{% endif %}
+         {% if erro %}aria-invalid="true"{% endif %}
+         {% if foco %}autofocus{% endif %} required {{ extras|safe }}>
+  {% if ajuda %}<p class="campo__ajuda" id="ajuda-{{ nome }}">{{ ajuda }}</p>{% endif %}
+  {% if erro %}<p class="campo__erro" id="erro-{{ nome }}">{{ icone.alerta() }}<span>{{ erro }}</span></p>{% endif %}
+</div>
+{% endmacro %}

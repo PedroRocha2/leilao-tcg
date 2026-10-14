@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_cartao.html" import cartao_leilao %}
+{% block titulo %}{% if jogo %}{{ jogo.nome }} · {% endif %}Leilões ativos{% endblock %}
+{% block descricao %}Cartas de {{ jogo.nome if jogo else "Pokémon, Magic e Yu-Gi-Oh!" }} recebendo lances agora, com o lance atual e o tempo restante de cada leilão.{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Leilões ativos</h1>
+  <p class="cabecalho__texto">
+    {% if cartoes %}
+      {{ cartoes|length }} {{ "carta recebendo" if cartoes|length == 1 else "cartas recebendo" }} lances{% if jogo %} em {{ jogo.nome }}{% endif %}. As que terminam primeiro aparecem antes.
+    {% else %}
+      Nenhuma carta{% if jogo %} de {{ jogo.nome }}{% endif %} recebendo lances neste momento.
+    {% endif %}
+  </p>
+</div>
+
+<nav class="chips" aria-label="Filtrar por jogo">
+  <ul class="chips__lista">
+    <li><a class="chip" href="{{ url_for('leiloes.listar') }}" {% if not jogo %}aria-current="page"{% endif %}>Todos <span class="chip__qtd">{{ total_geral }}<span class="vh"> leilões</span></span></a></li>
+    {% for chip in chips %}
+    <li><a class="chip" href="{{ url_for('leiloes.listar', jogo=chip.slug) }}" {% if chip.atual %}aria-current="page"{% endif %}>{{ chip.nome }} <span class="chip__qtd">{{ chip.total }}<span class="vh"> leilões</span></span></a></li>
+    {% endfor %}
+  </ul>
+</nav>
+
+{% if cartoes %}
+<ul class="grade">
+  {% for c in cartoes %}{{ cartao_leilao(c, nivel=2, prioridade=loop.index <= 5) }}{% endfor %}
+</ul>
+{% else %}
+<div class="vazio">
+  <p class="vazio__titulo">Nenhum leilão ativo{% if jogo %} de {{ jogo.nome }}{% endif %} agora.</p>
+  <p>Novos leilões entram aqui assim que a loja aprova as cartas depositadas.</p>
+  {% if jogo %}<p><a class="botao botao--secundario" href="{{ url_for('leiloes.listar') }}">Ver todos os leilões</a></p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

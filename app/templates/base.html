@@ -1,0 +1,72 @@
+<!doctype html>
+{% import "_icones.html" as icone %}
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#252B3D">
+  <meta name="description" content="{% block descricao %}Leilões de cartas colecionáveis de Pokémon, Magic e Yu-Gi-Oh!, com a loja como intermediária.{% endblock %}">
+  <title>{% block titulo %}{% endblock %} · Leilão TCG</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <script>document.documentElement.classList.add("js")</script>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body data-agora="{{ agora_iso }}">
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  {% set secao = request.blueprint %}
+  {% set pagina_de_acesso = request.endpoint in ("contas.entrar", "contas.criar_conta") %}
+  {% set proximo_menu = request.args.get("proximo") if pagina_de_acesso else caminho_atual %}
+  <header class="topo">
+    <div class="container topo__barra">
+      <a class="marca" href="{{ url_for('leiloes.listar') }}" translate="no">Leilão TCG</a>
+      <nav class="nav" aria-label="Principal">
+        <button class="botao-menu" type="button" aria-expanded="false" aria-controls="menu-principal" hidden>
+          {{ icone.menu() }}Menu
+        </button>
+        <ul class="nav__lista" id="menu-principal">
+          <li>
+            <a class="nav__item" href="{{ url_for('leiloes.listar') }}"
+               {% if request.endpoint == "leiloes.listar" %}aria-current="page"{% elif secao == "leiloes" %}aria-current="true"{% endif %}>Leilões</a>
+          </li>
+          {% if cliente %}
+          <li class="nav__conta">
+            <a class="nav__item" href="{{ url_for('minha_conta.perfil') }}" {% if secao == "minha_conta" %}aria-current="page"{% endif %}>
+              {{ icone.usuario() }}Minha Conta
+            </a>
+          </li>
+          {% else %}
+          <li class="nav__conta">
+            <a class="nav__item" href="{{ url_for('contas.entrar', proximo=proximo_menu or None) }}"
+               {% if request.endpoint == "contas.entrar" %}aria-current="page"{% endif %}>Entrar</a>
+          </li>
+          <li>
+            <a class="nav__item nav__item--contorno" href="{{ url_for('contas.criar_conta', proximo=proximo_menu or None) }}"
+               {% if request.endpoint == "contas.criar_conta" %}aria-current="page"{% endif %}>Criar conta</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="conteudo" class="container conteudo" tabindex="-1">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% for categoria, mensagem in mensagens %}
+      <p class="aviso" role="status">{{ icone.ok() if categoria == "sucesso" else icone.info() }}<span>{{ mensagem }}</span></p>
+      {% endfor %}
+    {% endwith %}
+    {% block conteudo %}{% endblock %}
+  </main>
+
+  <footer class="rodape">
+    <div class="container">
+      <p><span translate="no">Leilão&nbsp;TCG</span> · projeto da disciplina Engenharia de Software I (UFSC).</p>
+      <p>Imagens das cartas © The Pokémon Company, Wizards of the Coast e Konami, obtidas em pokemontcg.io, Scryfall e YGOPRODeck.</p>
+    </div>
+  </footer>
+</body>
+</html>

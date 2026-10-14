@@ -1,0 +1,10 @@
+{% import "_icones.html" as icone %}
+{% for l in e.linhas %}
+<tr{% if l.maior %} class="maior"{% endif %}>
+  <td>{% if l.seu %}<strong>Você</strong>{% else %}{{ l.quem }}{% endif %}{% if l.maior %}<span class="etiqueta">{{ icone.maior() }}Maior lance</span>{% endif %}</td>
+  <td class="direita">{{ l.valor }}</td>
+  <td><time datetime="{{ l.iso }}"><span class="data-longa">{{ l.quando }}</span><span class="data-curta">{{ l.quando_curto }}</span></time></td>
+</tr>
+{% else %}
+<tr class="vazia"><td colspan="3">Ninguém deu lance ainda. O primeiro precisa ser de pelo menos {{ e.minimo }}.</td></tr>
+{% endfor %}

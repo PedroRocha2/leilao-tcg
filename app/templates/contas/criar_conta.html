@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "_icones.html" as icone %}
+{% from "_formulario.html" import campo %}
+{% block titulo %}Criar conta{% endblock %}
+{% block descricao %}Crie sua conta de cliente para dar lances nos leilões de cartas.{% endblock %}
+{% block conteudo %}
+{% set rotulos = {"nome": "Nome completo", "email": "E-mail", "telefone": "Telefone", "cpf": "CPF",
+                  "senha": "Senha", "confirmacao": "Confirmação da senha"} %}
+{% set primeiro_erro = (rotulos.keys()|select("in", erros)|first) if erros else None %}
+<div class="acesso">
+  <h1>Criar conta</h1>
+  <p class="acesso__texto">Com a conta você dá lances em qualquer leilão ativo.</p>
+
+  {% if erros %}
+  <div class="resumo-erros" role="alert">
+    <p>{{ icone.alerta() }}<span>Corrija {{ "o campo abaixo" if erros|length == 1 else "os " ~ erros|length ~ " campos abaixo" }} para criar a conta.</span></p>
+    <ul>
+      {% for nome in rotulos if nome in erros %}<li><a href="#{{ nome }}">{{ rotulos[nome] }}: {{ erros[nome] }}</a></li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form class="formulario" method="post" action="{{ url_for('contas.criar_conta') }}" data-avisar-ao-sair>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="proximo" value="{{ proximo }}">
+    {{ campo("nome", rotulos.nome, dados.nome, erros.get("nome"), autocomplete="name",
+             foco=primeiro_erro == "nome", extras='maxlength="120"') }}
+    {{ campo("email", rotulos.email, dados.email, erros.get("email"), tipo="email", autocomplete="email",
+             foco=primeiro_erro == "email", extras='spellcheck="false" autocapitalize="off"') }}
+    {{ campo("telefone", rotulos.telefone, dados.telefone, erros.get("telefone"), tipo="tel",
+             autocomplete="tel-national", inputmode="tel", placeholder="(48) 99123-4567…",
+             foco=primeiro_erro == "telefone") }}
+    {{ campo("cpf", rotulos.cpf, dados.cpf, erros.get("cpf"), inputmode="numeric",
+             placeholder="000.000.000-00…", foco=primeiro_erro == "cpf", extras='spellcheck="false"') }}
+    {{ campo("senha", rotulos.senha, erro=erros.get("senha"), tipo="password", autocomplete="new-password",
+             ajuda="Pelo menos 8 caracteres.", foco=primeiro_erro == "senha", extras='minlength="8"') }}
+    {{ campo("confirmacao", rotulos.confirmacao, erro=erros.get("confirmacao"), tipo="password",
+             autocomplete="new-password", foco=primeiro_erro == "confirmacao", extras='minlength="8"') }}
+
+    <p class="formulario__nota">Seu CPF e seu telefone servem só para a loja identificar você na entrega da carta. Nos leilões, os outros participantes veem apenas “Licitante” e um número.</p>
+    <button class="botao botao--primario botao--largo" type="submit">Criar conta</button>
+  </form>
+
+  <p class="acesso__alternativa">Já tem conta? <a href="{{ url_for('contas.entrar', proximo=proximo or None) }}">Entrar</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{# Card da grade de leilões: foto, nome, edição, lance atual e tempo restante. #}
+{% macro cartao_leilao(c, nivel=2, prioridade=false) %}
+<li class="cartao">
+  <img class="cartao__foto" src="{{ url_for('static', filename=c.foto) }}" alt="" width="600" height="838"
+       {% if prioridade %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+  <h{{ nivel }} class="cartao__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=c.id) }}">{{ c.nome }}</a></h{{ nivel }}>
+  <p class="cartao__ed" translate="no">{{ c.edicao }}</p>
+  <p class="cartao__rotulo">{{ c.rotulo_valor }}</p>
+  <p class="cartao__valor">{{ c.valor }}</p>
+  <p class="cartao__tempo">Termina em <span data-contagem data-alvo="{{ c.fim_iso }}">{{ c.restante }}</span></p>
+</li>
+{% endmacro %}

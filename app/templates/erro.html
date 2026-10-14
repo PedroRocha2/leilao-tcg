@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="cabecalho cabecalho--erro">
+  <h1>{{ titulo }}</h1>
+  <p class="cabecalho__texto">{{ texto }}</p>
+  <p><a class="botao botao--primario" href="{{ url_for('leiloes.listar') }}">Ver leilões ativos</a></p>
+</div>
+{% endblock %}

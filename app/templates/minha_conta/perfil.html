@@ -1,0 +1,8 @@
+{% extends "minha_conta/_layout.html" %}
+{% block titulo %}Perfil · Minha Conta{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Perfil</h2>
+<dl class="ficha">
+  {% for rotulo, valor in itens %}<div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>{% endfor %}
+</dl>
+{% endblock %}

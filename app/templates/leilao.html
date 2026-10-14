@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% import "_icones.html" as icone %}
+{% from "_cartao.html" import cartao_leilao %}
+{% set carta = leilao.carta %}
+{% block titulo %}{{ carta.nome }}{% endblock %}
+{% block descricao %}{{ carta.nome }}, {{ carta.edicao }}, {{ carta.condicao }}, em leilão. {{ e.rotulo_valor }}: {{ e.valor }}.{% endblock %}
+{% block conteudo %}
+<nav class="trilha" aria-label="Você está em">
+  <ol>
+    <li><a href="{{ url_for('leiloes.listar') }}">Leilões</a></li>
+    <li><a href="{{ url_for('leiloes.listar', jogo=jogo_slug) }}">{{ carta.jogo.nome }}</a></li>
+    <li><span aria-current="page" translate="no">{{ carta.nome }}</span></li>
+  </ol>
+</nav>
+
+<article class="leilao" data-leilao data-estado-url="{{ url_for('leiloes.estado_atual', leilao_id=leilao.id) }}">
+  <div class="cabeca">
+    <h1 translate="no">{{ carta.nome }}</h1>
+    <p class="cabeca__sub"><span translate="no">{{ carta.edicao }}</span> <span aria-hidden="true">·</span> <span translate="no">{{ carta.condicao }}</span></p>
+    <p class="status{% if not e.aberto %} status--fechado{% endif %}" data-status>
+      <span class="status__ponto" aria-hidden="true"></span><span class="vh">Status do leilão: </span><span data-situacao>{{ e.situacao }}</span>
+    </p>
+  </div>
+
+  <section class="galeria{% if fotos|length == 1 %} galeria--uma{% endif %}" aria-label="Fotos da carta" data-galeria>
+    {% if fotos|length > 1 %}
+    <ul class="galeria__miniaturas">
+      {% for url, descricao in fotos %}
+      <li>
+        <button class="miniatura" type="button" aria-pressed="{{ 'true' if loop.first else 'false' }}" data-indice="{{ loop.index0 }}">
+          <img src="{{ url_for('static', filename=url) }}" alt="Mostrar a foto {{ loop.index }} de {{ fotos|length }}: {{ descricao.rsplit(': ', 1)[-1] }}" width="480" height="670" decoding="async">
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <a class="galeria__ampliar" href="{{ url_for('static', filename=fotos[0][0]) }}" data-ampliar>
+      <img class="galeria__foto" src="{{ url_for('static', filename=fotos[0][0]) }}" alt="{{ fotos[0][1] }}" width="600" height="838" fetchpriority="high" data-foto-principal>
+      <span class="galeria__lupa">{{ icone.lupa() }}Ampliar</span>
+    </a>
+    <template data-fotos>
+      {% for url, descricao in fotos %}<span data-url="{{ url_for('static', filename=url) }}" data-descricao="{{ descricao }}"></span>{% endfor %}
+    </template>
+  </section>
+
+  <section class="painel" aria-labelledby="titulo-painel" data-painel>
+    <h2 id="titulo-painel" class="vh">Lance</h2>
+    <p class="rotulo" data-rotulo-valor>{{ e.rotulo_valor }}</p>
+    <p class="valor-grande" data-valor data-centavos="{{ e.valor_centavos }}">{{ e.valor }}</p>
+    <p class="painel__regras">
+      <span class="par" data-regra-inicial>{% if e.tem_lances %}Lance inicial {{ e.lance_inicial }}{% else %}Nenhum lance ainda{% endif %}</span>
+      <span aria-hidden="true">·</span>
+      <span class="par">Incremento mínimo {{ e.incremento }}</span>
+    </p>
+
+    <dl class="painel__numeros">
+      <div>
+        {% if e.aberto %}
+        <dt>Termina em</dt>
+        <dd>
+          <span role="timer" data-contagem data-alvo="{{ e.fim_iso }}" data-ao-zerar="recarregar">{{ e.restante }}</span>
+          <span class="painel__quando" data-fim-quando>{{ e.fim_quando }}</span>
+        </dd>
+        {% else %}
+        <dt>Fim do prazo</dt>
+        <dd>{{ e.fim_data_hora }}</dd>
+        {% endif %}
+      </div>
+      <div>
+        <dt>Lances</dt>
+        <dd data-total-lances>{{ e.total_lances }}</dd>
+      </div>
+    </dl>
+
+    {% if not e.aberto %}
+    <div class="lance">
+      <p class="lance__aviso">{{ icone.info() }}<span>Este leilão não recebe mais lances.</span></p>
+    </div>
+    {% elif not cliente %}
+    <div class="lance lance--visitante">
+      <p class="rotulo">Lance mínimo agora</p>
+      <p class="lance__minimo" data-minimo>{{ e.minimo }}</p>
+      <a class="botao botao--primario botao--largo" href="{{ url_for('contas.entrar', proximo=request.path) }}">Entrar para dar lance</a>
+      <p class="lance__ajuda">Ainda não tem conta? <a href="{{ url_for('contas.criar_conta', proximo=request.path) }}">Criar conta</a></p>
+    </div>
+    {% elif e.proprio %}
+    <div class="lance">
+      <p class="lance__aviso">{{ icone.info() }}<span>Você é o vendedor desta carta e não pode dar lances no próprio leilão.</span></p>
+    </div>
+    {% elif not e.pode_dar_lance %}
+    <div class="lance">
+      <p class="lance__aviso">{{ icone.alerta() }}<span>Sua conta está bloqueada para lances. Fale com a loja para regularizar.</span></p>
+    </div>
+    {% else %}
+    <form class="lance" method="post" action="{{ url_for('leiloes.dar_lance', leilao_id=leilao.id) }}" novalidate data-form-lance>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="valor-lance">Seu lance</label>
+      <div class="lance__linha">
+        <div class="campo-valor{% if erro %} campo-valor--erro{% endif %}">
+          <span class="campo-valor__moeda" aria-hidden="true">R$</span>
+          <input id="valor-lance" name="valor" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
+                 value="{{ e.minimo_numero if valor_digitado is none else valor_digitado }}"
+                 aria-describedby="{{ 'erro-lance' if erro else 'ajuda-lance' }}"
+                 {% if erro %}aria-invalid="true" autofocus{% endif %}>
+        </div>
+        <button class="botao botao--primario" type="submit" data-enviar>Dar lance</button>
+        <div class="lance__mensagens">
+          <p class="lance__ajuda" id="ajuda-lance" {% if erro %}hidden{% endif %}>Mínimo agora: <span data-minimo>{{ e.minimo }}</span> <span data-minimo-regra>({{ "maior lance + incremento mínimo" if e.tem_lances else "o lance inicial" }})</span>.</p>
+          <p class="lance__erro" id="erro-lance" {% if erro %}role="alert"{% else %}hidden{% endif %}>{{ icone.alerta() }}<span data-erro>{{ erro or "" }}</span></p>
+          <p class="lance__ok" hidden data-ok>{{ icone.ok() }}<span data-ok-texto></span></p>
+        </div>
+      </div>
+      <p class="lance__nota">Lances são definitivos: depois de registrar um lance, você não pode cancelá-lo nem reduzi-lo.</p>
+    </form>
+    {% endif %}
+    <p class="vh" role="status" aria-live="polite" data-anuncio></p>
+  </section>
+</article>
+
+<section class="abas" aria-labelledby="titulo-abas" data-abas>
+  <h2 id="titulo-abas" class="vh">Informações do leilão</h2>
+  <div class="abas__lista" hidden data-abas-lista>
+    <button class="aba" type="button" data-aba="painel-lances">Lances <span class="aba__qtd">(<span data-total-lances>{{ e.total_lances }}</span>)</span></button>
+    <button class="aba" type="button" data-aba="painel-detalhes">Detalhes</button>
+    <button class="aba" type="button" data-aba="painel-descricao">Descrição</button>
+  </div>
+
+  <section class="painel-aba" id="painel-lances" aria-labelledby="titulo-lances">
+    <h3 class="painel-aba__titulo" id="titulo-lances">Lances</h3>
+    <table class="tabela">
+      <caption class="vh">Lances do maior para o menor valor</caption>
+      <thead>
+        <tr><th scope="col">Licitante</th><th scope="col" class="direita">Valor</th><th scope="col">Data e hora</th></tr>
+      </thead>
+      <tbody data-linhas-lances>{% include "_linhas_lances.html" %}</tbody>
+    </table>
+  </section>
+
+  <section class="painel-aba" id="painel-detalhes" aria-labelledby="titulo-detalhes">
+    <h3 class="painel-aba__titulo" id="titulo-detalhes">Detalhes</h3>
+    <dl class="ficha">
+      {% for rotulo, valor in ficha %}<div><dt>{{ rotulo }}</dt><dd{% if rotulo in ("Edição", "Condição") %} translate="no"{% endif %}>{{ valor }}</dd></div>{% endfor %}
+    </dl>
+  </section>
+
+  <section class="painel-aba" id="painel-descricao" aria-labelledby="titulo-descricao">
+    <h3 class="painel-aba__titulo" id="titulo-descricao">Descrição</h3>
+    <div class="descricao"><p>{{ carta.descricao }}</p></div>
+  </section>
+</section>
+
+{% if outros %}
+<section class="outros" aria-labelledby="titulo-outros">
+  <div class="outros__cabeca">
+    <h2 id="titulo-outros">Outros leilões de {{ carta.jogo.nome }}</h2>
+    <a class="outros__todos" href="{{ url_for('leiloes.listar', jogo=jogo_slug) }}">Ver todos<span class="vh"> os leilões de {{ carta.jogo.nome }}</span></a>
+  </div>
+  <ul class="grade grade--outros">
+    {% for c in outros %}{{ cartao_leilao(c, nivel=3) }}{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<dialog class="ampliacao" aria-labelledby="titulo-ampliacao" data-ampliacao>
+  <div class="ampliacao__barra">
+    <p class="ampliacao__titulo" id="titulo-ampliacao" data-ampliacao-titulo translate="no">{{ carta.nome }}</p>
+    <button class="botao-icone" type="button" aria-label="Fechar" data-fechar>{{ icone.fechar() }}</button>
+  </div>
+  <div class="ampliacao__corpo">
+    <img src="{{ url_for('static', filename=fotos[0][0]) }}" alt="{{ fotos[0][1] }}" width="600" height="838" data-ampliacao-foto>
+  </div>
+  {% if fotos|length > 1 %}
+  <div class="ampliacao__nav">
+    <button class="botao-icone" type="button" aria-label="Foto anterior" data-anterior>{{ icone.anterior() }}</button>
+    <p data-ampliacao-legenda></p>
+    <button class="botao-icone" type="button" aria-label="Próxima foto" data-proxima>{{ icone.proxima() }}</button>
+  </div>
+  {% endif %}
+</dialog>
+{% endblock %}
