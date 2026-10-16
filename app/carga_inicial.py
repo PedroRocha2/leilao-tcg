@@ -1,10 +1,3 @@
-"""Carga inicial do banco: jogos, cartas, leilões ativos e lances de outros clientes.
-
-Os horários são relativos ao momento da carga. Os lances passam pelas mesmas regras do domínio
-(Cliente.darLance), então o histórico já nasce coerente com a RN01. Os clientes daqui não têm
-senha utilizável: ninguém entra com eles, e nas telas aparecem só como "Licitante N".
-"""
-
 import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -16,14 +9,13 @@ from app.dominio.senhas import senha_inutilizavel
 from app.repositorios.clientes import RepositorioClientes
 from app.repositorios.leiloes import RepositorioLeiloes
 
-INCREMENTO_DA_LOJA = Decimal("5.00")  # RN17: o mesmo para todos os leilões da loja
-STATUS_DA_CARTA_EM_LEILAO = "em leilão"  # um dos status do RF14
+INCREMENTO_DA_LOJA = Decimal("5.00")
+STATUS_DA_CARTA_EM_LEILAO = "em leilão"
 
 h = timedelta(hours=1)
 m = timedelta(minutes=1)
 d = timedelta(days=1)
 
-# (nome, e-mail, telefone, base do CPF, dias desde o cadastro)
 CLIENTES = [
     ("Rafaela Moura", "rafaela.moura@correio.invalid", "48991230457", "318402956", 220),
     ("Thiago Bastos", "thiago.bastos@correio.invalid", "48998107733", "207615384", 180),
@@ -37,8 +29,6 @@ CLIENTES = [
 
 POKEMON, MAGIC, YUGIOH = "Pokémon", "Magic: The Gathering", "Yu-Gi-Oh!"
 
-# Cada carta: jogo, nome, edição, condição, descrição, arquivo das fotos, vendedor (índice em
-# CLIENTES), lance inicial, início e fim relativos à carga e lances (cliente, valor, quando).
 CARTAS = [
     (POKEMON, "Charizard", "Base Set (4/102)", "Lightly Played (LP)",
      "Charizard holográfico do Base Set, carta 4 de 102. O holo não tem riscos aparentes e a "

@@ -2,7 +2,7 @@
    Regra de contraste: --accent, --accent-hover e --border nunca aparecem em texto nem ícone. */
 
 @font-face {
-  font-family: "Inter"; /* taste-skill-ignore: tipografia mantida da v1 (DESIGN.md) */
+  font-family: "Inter";
   font-style: normal;
   font-weight: 400 900;
   font-display: swap;
@@ -63,7 +63,7 @@ html {
 
 body {
   margin: 0;
-  min-height: 100vh; /* taste-skill-ignore: fallback para navegadores sem dvh */
+  min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -90,7 +90,7 @@ a:hover { text-decoration-thickness: 2px; }
 
 .vh {
   position: absolute !important;
-  width: 1px; height: 1px; /* taste-skill-ignore: texto só para leitor de tela */
+  width: 1px; height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -115,8 +115,6 @@ a:hover { text-decoration-thickness: 2px; }
 .conteudo { flex: 1; padding-block: var(--s-5) var(--s-9); }
 .conteudo:focus { outline: none; }
 
-/* ---------- Botões ---------- */
-
 .botao {
   display: inline-flex;
   align-items: center;
@@ -139,7 +137,7 @@ a:hover { text-decoration-thickness: 2px; }
 .botao--primario { background: var(--accent); color: var(--on-accent); }
 .botao--primario:hover,
 .botao--primario:active { background: var(--accent-hover); }
-.botao--secundario { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-input); /* taste-skill-ignore: contorno do botão secundário (DESIGN.md) */ }
+.botao--secundario { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-input);  }
 .botao--secundario:hover { background: var(--surface-2); }
 .botao--terciario { min-height: var(--alvo); padding: 0 var(--s-3); background: transparent; color: var(--text); }
 .botao--terciario:hover { background: var(--surface-2); }
@@ -156,13 +154,11 @@ a:hover { text-decoration-thickness: 2px; }
   border-radius: var(--r-controle);
   background: var(--surface-2);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border-input); /* taste-skill-ignore: limite visível do botão de ícone */
+  box-shadow: inset 0 0 0 1px var(--border-input);
   cursor: pointer;
   transition: box-shadow 150ms ease;
 }
-.botao-icone:hover { box-shadow: inset 0 0 0 2px var(--text); /* taste-skill-ignore: hover do botão de ícone */ }
-
-/* ---------- Menu superior ---------- */
+.botao-icone:hover { box-shadow: inset 0 0 0 2px var(--text);  }
 
 .topo { position: sticky; top: 0; z-index: var(--z-menu); background: var(--surface); }
 .topo__barra { position: relative; display: flex; align-items: center; gap: var(--s-6); min-height: 64px; }
@@ -195,11 +191,9 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .nav__item:hover { background: var(--surface-2); }
 .nav__item[aria-current] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.nav__item--contorno:not([aria-current]) { box-shadow: inset 0 0 0 1px var(--border-input); /* taste-skill-ignore: ação secundária do menu; o degrau de tom entre as superfícies é pequeno demais */ }
+.nav__item--contorno:not([aria-current]) { box-shadow: inset 0 0 0 1px var(--border-input);  }
 
 .botao-menu { display: none; }
-
-/* ---------- Mensagens ---------- */
 
 .aviso,
 .lance__aviso {
@@ -221,8 +215,6 @@ a:hover { text-decoration-thickness: 2px; }
 .campo__erro > span,
 .resumo-erros p > span { min-width: 0; overflow-wrap: break-word; }
 
-/* ---------- Cabeçalhos de página ---------- */
-
 .cabecalho { margin-top: var(--s-4); margin-bottom: var(--s-6); max-width: 46rem; }
 .cabecalho h1,
 .acesso h1,
@@ -238,8 +230,6 @@ a:hover { text-decoration-thickness: 2px; }
 .cabecalho .botao { margin-top: var(--s-5); }
 
 .subtitulo { margin: var(--s-7) 0 var(--s-4); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
-
-/* ---------- Lista de leilões ---------- */
 
 .chips { margin-bottom: var(--s-6); }
 .chips__lista { display: flex; flex-wrap: wrap; gap: var(--s-2); }
@@ -273,7 +263,7 @@ a:hover { text-decoration-thickness: 2px; }
   background: var(--surface);
   transition: box-shadow 150ms ease;
 }
-.cartao:hover { box-shadow: inset 0 0 0 1px var(--border-input); /* taste-skill-ignore: estado de hover do card */ }
+.cartao:hover { box-shadow: inset 0 0 0 1px var(--border-input);  }
 .cartao:focus-within { outline: 2px solid var(--text-link); outline-offset: 2px; }
 .cartao__foto { width: 100%; aspect-ratio: var(--proporcao-carta); object-fit: cover; border-radius: var(--r-midia); }
 .cartao__nome { margin-top: var(--s-3); font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: break-word; }
@@ -292,16 +282,12 @@ a:hover { text-decoration-thickness: 2px; }
 .vazio__titulo { font-size: 18px; font-weight: 600; }
 .vazio--compacto { padding: var(--s-5); }
 
-/* ---------- Página do leilão: trilha ---------- */
-
 .trilha { margin-top: var(--s-1); }
 .trilha ol { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); font-size: 14px; color: var(--text-muted); }
 .trilha li { min-width: 0; overflow-wrap: anywhere; }
 .trilha li + li::before { content: "/"; margin-right: var(--s-2); }
 .trilha a { text-decoration: none; }
 .trilha a:hover { text-decoration: underline; }
-
-/* ---------- Página do leilão: galeria, cabeça e painel ---------- */
 
 .leilao {
   display: grid;
@@ -388,16 +374,16 @@ a:hover { text-decoration-thickness: 2px; }
   gap: var(--s-5);
   margin-top: var(--s-5);
   padding-top: var(--s-5);
-  border-top: 1px solid var(--border); /* taste-skill-ignore: divisória decorativa com --border (paleta da v2) */
+  border-top: 1px solid var(--border);
 }
 .painel__numeros dt { font-size: 15px; color: var(--text-muted); }
 .painel__numeros dd { font-size: 24px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }
 .painel__numeros [data-contagem] { white-space: nowrap; }
 .painel__quando { display: block; font-size: 14px; font-weight: 400; color: var(--text-muted); }
 
-.lance { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--border); /* taste-skill-ignore: divisória decorativa com --border (paleta da v2) */ }
+.lance { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--border);  }
 .lance label { display: block; margin-bottom: var(--s-2); font-size: 15px; font-weight: 600; }
-/* Campo e botão na mesma linha; ajuda, recusa e confirmação logo abaixo do campo. */
+
 .lance__linha {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -414,7 +400,7 @@ a:hover { text-decoration-thickness: 2px; }
   align-items: center;
   min-width: 0;
   height: 56px;
-  border: 1px solid var(--border-input); /* taste-skill-ignore: borda de campo de formulário (--border-input) */
+  border: 1px solid var(--border-input);
   border-radius: var(--r-controle);
   background: var(--surface-2);
 }
@@ -451,12 +437,10 @@ a:hover { text-decoration-thickness: 2px; }
 .lance__minimo { margin: var(--s-1) 0 var(--s-4); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .lance--visitante .lance__ajuda { margin-top: var(--s-3); }
 
-/* ---------- Abas ---------- */
-
 .abas { margin-top: var(--s-9); }
 .abas__lista,
 .conta-abas__lista { display: flex; gap: var(--s-6); overflow-x: auto; scrollbar-width: none; }
-.abas__lista { border-bottom: 1px solid var(--border); /* taste-skill-ignore: divisória decorativa com --border (paleta da v2) */ }
+.abas__lista { border-bottom: 1px solid var(--border);  }
 
 .aba {
   position: relative;
@@ -505,8 +489,8 @@ a:hover { text-decoration-thickness: 2px; }
 .tabela td.direita { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tabela time { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tabela tr.maior td { font-weight: 700; }
-.tabela tr.maior td:first-child { box-shadow: inset 3px 0 0 var(--text-link); /* taste-skill-ignore: marca do maior lance na tabela */ }
-/* Realce do lance que acabou de entrar: só opacidade, numa camada atrás do texto. */
+.tabela tr.maior td:first-child { box-shadow: inset 3px 0 0 var(--text-link);  }
+
 .tabela tr.novo td { position: relative; z-index: 0; }
 .tabela tr.novo td::before {
   content: "";
@@ -528,7 +512,6 @@ a:hover { text-decoration-thickness: 2px; }
   to { opacity: 0; }
 }
 
-/* Lista de definição em linhas alternadas, como a tabela de lances (--surface-2). */
 .ficha { display: grid; max-width: 640px; }
 .ficha div { display: flex; justify-content: space-between; gap: var(--s-4); padding: 14px var(--s-4); border-radius: var(--r-controle); }
 .ficha div:nth-child(odd) { background: var(--surface-2); }
@@ -536,16 +519,12 @@ a:hover { text-decoration-thickness: 2px; }
 .ficha dd { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .descricao { max-width: 68ch; font-size: 17px; line-height: 1.65; text-wrap: pretty; }
 
-/* ---------- Outros leilões ---------- */
-
 .outros { margin-top: var(--s-9); }
 .outros__cabeca { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4); margin-bottom: var(--s-5); }
 .outros h2 { font-size: 28px; font-weight: 600; line-height: 1.2; letter-spacing: -0.02em; text-wrap: balance; }
 .outros__todos { display: inline-flex; align-items: center; min-height: var(--alvo); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .outros__todos:hover { text-decoration: underline; }
 .grade--outros { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-
-/* ---------- Ampliação da foto ---------- */
 
 .ampliacao {
   width: min(92vw, 640px);
@@ -555,7 +534,7 @@ a:hover { text-decoration-thickness: 2px; }
   border-radius: var(--r-cartao);
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6); /* taste-skill-ignore: diálogo sobreposto */
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   overscroll-behavior: contain;
 }
 .ampliacao::backdrop { background: rgba(0, 0, 0, 0.86); }
@@ -564,8 +543,6 @@ a:hover { text-decoration-thickness: 2px; }
 .ampliacao__corpo { padding: 0 var(--s-5) var(--s-5); }
 .ampliacao__corpo img { width: 100%; max-height: calc(94vh - 170px); object-fit: contain; border-radius: var(--r-midia); }
 .ampliacao__nav { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: 0 var(--s-5) var(--s-5); color: var(--text-muted); font-size: 14px; text-align: center; }
-
-/* ---------- Entrar e criar conta ---------- */
 
 .acesso { max-width: 480px; margin: var(--s-4) auto 0; }
 .acesso__texto { margin-top: var(--s-3); font-size: 17px; color: var(--text-muted); }
@@ -591,15 +568,13 @@ a:hover { text-decoration-thickness: 2px; }
 .campo__erro { display: flex; align-items: flex-start; gap: var(--s-2); margin-top: var(--s-2); font-size: 14px; font-weight: 600; }
 .campo__erro svg { flex: none; width: 18px; height: 18px; margin-top: 1px; }
 
-.resumo-erros { margin-top: var(--s-5); padding: var(--s-4); border-radius: var(--r-controle); background: var(--surface-2); box-shadow: inset 3px 0 0 var(--text); /* taste-skill-ignore: marca do resumo de erros */ }
+.resumo-erros { margin-top: var(--s-5); padding: var(--s-4); border-radius: var(--r-controle); background: var(--surface-2); box-shadow: inset 3px 0 0 var(--text);  }
 .resumo-erros p { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; }
 .resumo-erros svg { flex: none; margin-top: 2px; }
 .resumo-erros ul { margin-top: var(--s-2); padding-left: 30px; list-style: disc; }
 .resumo-erros li + li { margin-top: var(--s-1); }
 
-/* ---------- Minha Conta ---------- */
-
-.conta-abas { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); border-bottom: 1px solid var(--border); /* taste-skill-ignore: divisória decorativa com --border (paleta da v2) */ }
+.conta-abas { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); border-bottom: 1px solid var(--border);  }
 .conta-abas__nav { min-width: 0; }
 .conta-abas__sair { flex: none; }
 .conta-conteudo { padding-top: var(--s-6); }
@@ -629,14 +604,10 @@ a:hover { text-decoration-thickness: 2px; }
 .meu-lance__numeros dd { font-weight: 600; font-variant-numeric: tabular-nums; }
 .meu-lance__numeros .destaque { color: var(--text-link); }
 
-/* ---------- Erro e rodapé ---------- */
-
 .cabecalho--erro { margin-top: var(--s-7); }
 
 .rodape { padding: var(--s-6) 0 var(--s-7); background: var(--surface); color: var(--text-muted); font-size: 14px; }
 .rodape p + p { margin-top: var(--s-2); }
-
-/* ---------- Telas médias ---------- */
 
 @media (max-width: 1080px) {
   .leilao { grid-template-columns: minmax(0, 400px) minmax(0, 1fr); column-gap: var(--s-6); }
@@ -644,8 +615,6 @@ a:hover { text-decoration-thickness: 2px; }
   .meu-lance { grid-template-columns: 64px minmax(0, 1fr); }
   .meu-lance__numeros { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-/* ---------- Tablet: título, galeria e painel empilhados ---------- */
 
 @media (max-width: 900px) {
   .leilao {
@@ -657,8 +626,6 @@ a:hover { text-decoration-thickness: 2px; }
   .galeria--uma { grid-template-columns: minmax(0, 400px); }
   .painel { max-width: 640px; }
 }
-
-/* ---------- Celular e tablet em retrato ---------- */
 
 @media (max-width: 767px) {
   .topo__barra { min-height: 56px; gap: var(--s-3); }
@@ -693,8 +660,8 @@ a:hover { text-decoration-thickness: 2px; }
     gap: var(--s-1);
     padding: var(--s-2) var(--margem) var(--s-4);
     background: var(--surface);
-    border-top: 1px solid var(--border); /* taste-skill-ignore: divisória decorativa com --border (paleta da v2) */
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.7); /* taste-skill-ignore: menu sobreposto */
+    border-top: 1px solid var(--border);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.7);
   }
   .js .nav--aberta .nav__lista { display: flex; }
   .js .nav__conta { margin: var(--s-4) 0 0; }

@@ -1,5 +1,3 @@
-"""Criar conta, entrar e sair (RF01). A senha é conferida por Usuario.autenticar()."""
-
 from functools import cache
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
@@ -14,7 +12,6 @@ bp = Blueprint("contas", __name__)
 
 @cache
 def _hash_de_comparacao(iteracoes: int) -> str:
-    """E-mail sem conta também calcula um hash: a resposta leva o mesmo tempo nos dois casos."""
     return senhas.gerar_hash("senha-que-nao-existe", iteracoes)
 
 
@@ -37,7 +34,7 @@ def criar_conta():
             novo = cadastrar(
                 clientes, **dados,
                 senha=request.form.get("senha", ""), confirmacao=request.form.get("confirmacao", ""),
-                hoje=agora().astimezone(FUSO_DA_LOJA).date(),  # dataCadastro = agora
+                hoje=agora().astimezone(FUSO_DA_LOJA).date(),
                 iteracoes=current_app.config["PBKDF2_ITERACOES"],
             )
         except CadastroInvalido as invalido:

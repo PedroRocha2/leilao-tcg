@@ -1,5 +1,3 @@
-"""Comportamento da página do leilão num navegador real: abas, galeria e lance sem recarregar."""
-
 import threading
 from datetime import date, timedelta
 from decimal import Decimal
@@ -58,7 +56,7 @@ def test_abas_com_teclado_e_aba_no_endereco(servidor, pagina):
 
     pagina.reload()
     assert pagina.get_attribute("#aba-painel-detalhes", "aria-selected") == "true"
-    pagina.keyboard.press("End")  # foco não está nas abas: nada muda
+    pagina.keyboard.press("End")
     abas.nth(1).focus()
     pagina.keyboard.press("End")
     assert pagina.locator("#painel-descricao").is_visible()
@@ -98,9 +96,9 @@ def test_lance_atualiza_a_pagina_sem_recarregar(servidor, pagina):
     pagina.wait_for_selector("#valor-lance")
     pagina.evaluate("window.mesmaPagina = true")
 
-    pagina.click("[data-enviar]")  # o campo já vem com o mínimo (R$ 2.355,00)
+    pagina.click("[data-enviar]")
     pagina.locator("[data-ok]").filter(has_text="registrado").wait_for()
-    assert pagina.evaluate("window.mesmaPagina") is True  # não houve recarga
+    assert pagina.evaluate("window.mesmaPagina") is True
     assert pagina.inner_text("[data-valor]") == "R$ 2.355,00"
     assert pagina.inner_text(".painel [data-total-lances]") == "5"
     assert pagina.input_value("#valor-lance") == "2.360,00"
@@ -141,4 +139,4 @@ def test_rn02_prorrogacao_atualiza_o_cronometro(servidor, pagina):
     pagina.locator("[data-ok]").filter(has_text="registrado").wait_for()
     depois = pagina.get_attribute(".painel [data-contagem]", "data-alvo")
     assert depois != antes
-    assert pagina.inner_text(".painel [data-contagem]").startswith("4 min")  # 2 min + 3 min, menos o tempo do teste
+    assert pagina.inner_text(".painel [data-contagem]").startswith("4 min")

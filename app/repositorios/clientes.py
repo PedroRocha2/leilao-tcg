@@ -1,5 +1,3 @@
-"""Cliente com o Usuario (herança) e a Carteira composta, que nasce e é lida junto com ele."""
-
 import sqlite3
 from collections import defaultdict
 from datetime import date
@@ -22,7 +20,6 @@ class RepositorioClientes:
         self.conexao = conexao
 
     def adicionar(self, cliente: Cliente) -> Cliente:
-        """Grava Usuario, Cliente e Carteira numa transação: não existe cliente sem carteira."""
         with transacao(self.conexao):
             cursor = self.conexao.execute(
                 "INSERT INTO usuarios (nome, email, senha_hash, telefone, data_cadastro, ativo)"
@@ -43,7 +40,6 @@ class RepositorioClientes:
         return cliente
 
     def email_em_uso(self, email: str) -> bool:
-        # A coluna usa COLLATE NOCASE: "Ana@X.com" e "ana@x.com" são o mesmo e-mail.
         return self.conexao.execute("SELECT 1 FROM usuarios WHERE email = ?", (email,)).fetchone() is not None
 
     def cpf_em_uso(self, cpf: str) -> bool:
@@ -57,7 +53,6 @@ class RepositorioClientes:
         return self.por_id(linha["id"]) if linha else None
 
     def carregar(self, ids) -> dict[int, Cliente]:
-        """Monta vários clientes de uma vez (três consultas, qualquer que seja a quantidade)."""
         ids = sorted(set(ids))
         if not ids:
             return {}

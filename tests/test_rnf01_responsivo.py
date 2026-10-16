@@ -1,16 +1,3 @@
-"""RNF01: a tela do leilão e a área de envio de lance são responsivas e adaptadas a celulares.
-
-Critérios medidos num navegador real (Playwright), em 360, 390 e 768 px de largura:
-  1. sem rolagem horizontal (scrollWidth da página <= largura da janela);
-  2. cronômetro, lance atual, campo e botão "Dar lance" inteiros dentro da largura da tela, com o
-     lance atual e o cronômetro numa linha só e o campo com pelo menos 160 px para digitar;
-  3. alvos de toque (campo, botão, miniaturas, abas, chips e botão do menu) com pelo menos 44 x 44 px;
-  4. fonte do campo de valor >= 16 px (o iOS não aplica zoom automático);
-  5. o lance funciona nessa largura: recusa com o motivo junto ao campo e aceite sem recarregar;
-  6. o menu superior recolhe num botão operável pelo teclado.
-Evidências: screenshots e medicoes.json em evidencias/rnf01/.
-"""
-
 import json
 import threading
 from datetime import date
@@ -34,7 +21,6 @@ EMAIL = "rnf01@teste.com"
 
 @pytest.fixture
 def servidor(tmp_path):
-    """Servidor com banco novo por teste: cada largura começa do Charizard em R$ 2.350,00."""
     banco = tmp_path / "rnf01.sqlite3"
     app = create_app({
         "TESTING": True,
@@ -80,7 +66,6 @@ def largura_da_pagina(page):
 
 
 def capturar_pagina_inteira(page, caminho):
-    """Carrega as fotos com loading="lazy" e volta ao topo antes da captura (o menu é fixo)."""
     page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
     page.wait_for_function("[...document.images].every(img => img.complete)")
     page.evaluate("window.scrollTo(0, 0)")
@@ -126,14 +111,13 @@ def test_tela_do_leilao_e_area_de_lance(servidor, browser, largura, altura):
     assert medicao["campo"]["largura"] >= 160, "o campo de valor ficou estreito demais para digitar"
     assert medicao["lance_atual"]["altura"] < 1.5 * medicao["lance_atual"]["fonte"], "o lance atual quebrou em duas linhas"
     assert medicao["cronometro"]["altura"] < 1.5 * medicao["cronometro"]["fonte"], "o cronômetro quebrou em duas linhas"
-    assert page.input_value("#valor-lance") == "2.355,00"  # já preenchido com calcularLanceMinimo()
+    assert page.input_value("#valor-lance") == "2.355,00"
 
     for nome, seletor in {"miniaturas": ".miniatura", "abas": "[role=tab]"}.items():
         alvos = medir_todos(page, seletor)
         medicao[nome] = alvos
         assert alvos and all(l >= ALVO_MINIMO and a >= ALVO_MINIMO and d <= largura for l, a, d in alvos), nome
 
-    # Regra de negócio nesta largura: recusa com o motivo junto ao campo, sem rolagem horizontal.
     page.fill("#valor-lance", "2.000,00")
     page.click("[data-enviar]")
     erro = page.locator("#erro-lance")
@@ -146,7 +130,6 @@ def test_tela_do_leilao_e_area_de_lance(servidor, browser, largura, altura):
     assert largura_da_pagina(page)["rolagem"] <= largura
     page.screenshot(path=str(EVIDENCIAS / f"leilao-{largura}px-recusa.png"))
 
-    # Lance aceito sem recarregar: anúncio, tabela e novo mínimo no campo.
     page.fill("#valor-lance", "2.355,00")
     page.locator("[data-enviar]").tap()
     page.locator("[data-ok]").filter(has_text="registrado").wait_for()
@@ -201,7 +184,6 @@ def test_menu_superior_recolhe_num_botao_acessivel_por_teclado(servidor, browser
     page.keyboard.press("Enter")
     assert lista.is_visible()
     assert botao.get_attribute("aria-expanded") == "true"
-    # O foco vai para o item ativo, destacado com --accent e texto branco.
     ativo = page.evaluate("""() => { const el = document.activeElement;
         return {atual: el.getAttribute('aria-current'), texto: el.textContent.trim(),
                 fundo: getComputedStyle(el).backgroundColor, cor: getComputedStyle(el).color}; }""")

@@ -1,5 +1,3 @@
-"""Criar conta (RF01): valida os dados de Usuario e Cliente e grava o Cliente com a Carteira."""
-
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -15,8 +13,6 @@ _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 @dataclass
 class CadastroInvalido(Exception):
-    """Erros por campo, para a tela mostrar cada um junto do seu campo."""
-
     erros: dict[str, str] = field(default_factory=dict)
 
 
@@ -26,7 +22,6 @@ def normalizar_email(email: str | None) -> str:
 
 def criar_conta(repositorio: RepositorioClientes, *, nome: str, email: str, telefone: str, cpf: str,
                 senha: str, confirmacao: str, hoje: date, iteracoes: int) -> Cliente:
-    """Cria o Cliente com dataCadastro = hoje, ativo, sem bloqueio e com a Carteira em saldo 0."""
     nome = " ".join((nome or "").split())
     email = normalizar_email(email)
     telefone = somente_digitos(telefone)

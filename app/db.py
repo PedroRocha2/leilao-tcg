@@ -7,7 +7,7 @@ import click
 from flask import current_app, g
 
 SCHEMA = Path(__file__).with_name("schema.sql")
-VERSAO_DO_ESQUEMA = 2  # PRAGMA user_version; um banco de outra versão é recriado
+VERSAO_DO_ESQUEMA = 2
 
 
 def agora_utc() -> datetime:
@@ -23,7 +23,6 @@ def de_texto(texto: str) -> datetime:
 
 
 def conectar(caminho: str) -> sqlite3.Connection:
-    # isolation_level=None: as transações são abertas à mão (ver transacao).
     conexao = sqlite3.connect(caminho, isolation_level=None, timeout=10)
     conexao.row_factory = sqlite3.Row
     conexao.execute("PRAGMA foreign_keys = ON")
@@ -32,11 +31,6 @@ def conectar(caminho: str) -> sqlite3.Connection:
 
 @contextmanager
 def transacao(conexao: sqlite3.Connection, imediata: bool = False):
-    """Abre uma transação, ou participa da que já estiver aberta.
-
-    imediata=True usa BEGIN IMMEDIATE: trava a escrita antes de ler, para dois lances
-    simultâneos não serem validados contra o mesmo maior lance (RN13).
-    """
     if conexao.in_transaction:
         yield conexao
         return
@@ -50,7 +44,6 @@ def transacao(conexao: sqlite3.Connection, imediata: bool = False):
 
 
 def marcadores(quantidade: int) -> str:
-    """"?, ?, ?" para consultas com IN (...)."""
     return ", ".join("?" * quantidade)
 
 
@@ -75,7 +68,6 @@ def _versao(caminho: Path) -> int:
 
 
 def preparar_banco(caminho: str, recriar: bool = False, agora: datetime | None = None) -> None:
-    """Cria o banco com o esquema e a carga inicial. Um banco da v1 (ou incompleto) é recriado."""
     from app.carga_inicial import popular
 
     arquivo = Path(caminho)
@@ -96,7 +88,6 @@ def preparar_banco(caminho: str, recriar: bool = False, agora: datetime | None =
 
 @click.command("reiniciar-dados")
 def comando_reiniciar_dados() -> None:
-    """Apaga o banco e recria jogos, cartas e leilões com prazos contados a partir de agora."""
     preparar_banco(current_app.config["DATABASE"], recriar=True)
     click.echo("Banco recriado: leilões com prazos contados a partir de agora e nenhuma conta de usuário.")
 

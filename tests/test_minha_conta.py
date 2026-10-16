@@ -1,5 +1,3 @@
-"""Minha Conta: Perfil, Carteira (só leitura) e Meus lances."""
-
 import pytest
 
 from apoio import CSRF, criar_conta, lance_json, leilao_id
@@ -37,7 +35,7 @@ def test_carteira_mostra_saldo_zero_e_extrato_vazio(logado):
     pagina = logado.get("/minha-conta/carteira").get_data(as_text=True)
     assert "R$ 0,00" in pagina
     assert "Nenhuma movimentação na sua carteira." in pagina
-    assert "<form" not in pagina.split('class="conta-conteudo"')[1]  # só leitura: nenhuma ação
+    assert "<form" not in pagina.split('class="conta-conteudo"')[1]
 
 
 def test_carteira_lista_as_movimentacoes_gravadas(logado, banco):
@@ -59,7 +57,6 @@ def test_meus_lances_vazio_e_depois_com_o_lance(logado, banco, app):
     pagina = logado.get("/minha-conta/lances").get_data(as_text=True)
     assert ">Charizard</a>" in pagina and "Você lidera" in pagina and "Ativo" in pagina
 
-    # Outro cliente cobre o lance: a situação muda para "Superado".
     outro = app.test_client()
     with outro.session_transaction() as sessao:
         sessao["csrf"] = CSRF

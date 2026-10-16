@@ -1,5 +1,3 @@
-"""Rotas: leilões (ver e dar lance), contas (criar, entrar, sair) e Minha Conta."""
-
 from flask import abort, jsonify, render_template, request
 
 from app.db import para_texto

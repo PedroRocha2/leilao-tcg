@@ -1,5 +1,3 @@
-"""Minha Conta: Perfil, Carteira (só leitura) e Meus lances."""
-
 from flask import Blueprint, render_template
 
 from app.apresentacao import data_hora, meu_lance, perfil as itens_do_perfil
@@ -35,7 +33,6 @@ def lances():
     momento = agora()
     _, repositorio = repositorios()
     itens = [meu_lance(leilao, cliente, momento) for leilao in repositorio.com_lances_do_cliente(cliente.id)]
-    # Os que ainda recebem lances, com os que terminam antes no topo; depois os encerrados, do mais recente.
     abertos = sorted((item for item in itens if item["aberto"]), key=lambda item: item["fim_iso"])
     encerrados = sorted((item for item in itens if not item["aberto"]), key=lambda item: item["fim_iso"],
                         reverse=True)

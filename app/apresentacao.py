@@ -1,9 +1,3 @@
-"""O que as telas mostram: datas no fuso da loja, tempo restante, licitantes anônimos e resumos.
-
-Nada aqui decide regra de negócio; os valores vêm dos métodos do domínio (getMaiorLance,
-calcularLanceMinimo, estaAberto).
-"""
-
 import re
 import unicodedata
 from datetime import date, datetime
@@ -19,8 +13,6 @@ FUSO_DA_LOJA = ZoneInfo("America/Sao_Paulo")
 _DETALHE_DA_FOTO = {"frente": "frente da carta", "arte": "detalhe da arte", "canto": "detalhe do canto inferior"}
 
 
-# ---------- Datas e tempo ----------
-
 def data(dia: date) -> str:
     return dia.strftime("%d/%m/%Y")
 
@@ -34,7 +26,6 @@ def data_hora_curta(momento: datetime) -> str:
 
 
 def quando_termina(momento: datetime, agora: datetime) -> str:
-    """"hoje às 16:20", "amanhã às 09:00" ou "16/10 às 18:00"."""
     local, hoje = momento.astimezone(FUSO_DA_LOJA), agora.astimezone(FUSO_DA_LOJA).date()
     hora = local.strftime("%H:%M")
     dias = (local.date() - hoje).days
@@ -48,7 +39,6 @@ def quando_termina(momento: datetime, agora: datetime) -> str:
 
 
 def tempo_restante(momento: datetime, agora: datetime) -> str:
-    """Mesmo formato do cronômetro em app.js: "1 d 4 h 12 min", "5 h 49 min", "12 min 05 s"."""
     segundos = max(0, int((momento - agora).total_seconds()))
     dias, resto = divmod(segundos, 86400)
     horas, resto = divmod(resto, 3600)
@@ -60,16 +50,12 @@ def tempo_restante(momento: datetime, agora: datetime) -> str:
     return f"{minutos} min {segundos:02d} s"
 
 
-# ---------- Textos ----------
-
 def slug(nome: str) -> str:
-    """"Magic: The Gathering" -> "magic-the-gathering" (endereço do filtro por jogo)."""
     sem_acento = unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "-", sem_acento.lower()).strip("-")
 
 
 def descricao_da_foto(leilao: Leilao, url: str, posicao: int) -> str:
-    """Texto alternativo: Carta.fotos guarda só os endereços, o tipo vem do nome do arquivo."""
     carta = leilao.carta
     tipo = url.rsplit("/", 1)[-1].rsplit(".", 1)[0].rsplit("-", 1)[-1]
     detalhe = _DETALHE_DA_FOTO.get(tipo, f"foto {posicao}")
@@ -77,8 +63,6 @@ def descricao_da_foto(leilao: Leilao, url: str, posicao: int) -> str:
 
 
 def situacao(leilao: Leilao, agora: datetime) -> str:
-    """Rótulo do badge de status. O status gravado continua "ativo" até o encerramento (RF09,
-    fora do escopo); passado o prazo, a tela já mostra "Encerrado"."""
     if leilao.status == StatusLeilao.CANCELADO:
         return "Cancelado"
     if leilao.status == StatusLeilao.PENDENTE:
@@ -91,17 +75,13 @@ def situacao(leilao: Leilao, agora: datetime) -> str:
 
 
 def licitantes(leilao: Leilao) -> dict[int, str]:
-    """Licitante 1, 2, 3… pela ordem do primeiro lance de cada cliente neste leilão (LGPD)."""
     rotulos: dict[int, str] = {}
     for lance in sorted(leilao.lances, key=lambda l: l.dataHora):
         rotulos.setdefault(lance.cliente.id, f"Licitante {len(rotulos) + 1}")
     return rotulos
 
 
-# ---------- Resumos para as telas ----------
-
 def cartao(leilao: Leilao, agora: datetime) -> dict:
-    """Card da grade: foto, nome, edição, lance atual e tempo restante."""
     maior = leilao.getMaiorLance()
     carta = leilao.carta
     return {
@@ -117,7 +97,6 @@ def cartao(leilao: Leilao, agora: datetime) -> dict:
 
 
 def estado(leilao: Leilao, agora: datetime, cliente: Cliente | None) -> dict:
-    """Painel de lance e tabela. É o mesmo conteúdo da página e do JSON de atualização."""
     maior = leilao.getMaiorLance()
     minimo = leilao.calcularLanceMinimo()
     rotulos = licitantes(leilao)
@@ -162,7 +141,6 @@ def estado(leilao: Leilao, agora: datetime, cliente: Cliente | None) -> dict:
 
 
 def ficha(leilao: Leilao, agora: datetime) -> list[tuple[str, str]]:
-    """Aba Detalhes: atributos da Carta e do Leilao."""
     carta = leilao.carta
     itens = [
         ("Jogo", carta.jogo.nome),
@@ -182,7 +160,6 @@ def ficha(leilao: Leilao, agora: datetime) -> list[tuple[str, str]]:
 
 
 def meu_lance(leilao: Leilao, cliente: Cliente, agora: datetime) -> dict:
-    """Linha de "Meus lances": o maior lance do cliente, o lance atual e o status do leilão."""
     meus = [lance for lance in leilao.lances if lance.cliente.ehOMesmo(cliente)]
     maior = leilao.getMaiorLance()
     aberto = leilao.estaAberto(agora)
@@ -202,7 +179,6 @@ def meu_lance(leilao: Leilao, cliente: Cliente, agora: datetime) -> dict:
 
 
 def perfil(cliente: Cliente) -> list[tuple[str, str]]:
-    """Aba Perfil: dados de Usuario e Cliente (CPF mascarado)."""
     telefone = cliente.telefone
     telefone = (f"({telefone[:2]}) {telefone[2:-4]}-{telefone[-4:]}" if len(telefone) in (10, 11)
                 else telefone)

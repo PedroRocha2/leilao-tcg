@@ -1,4 +1,3 @@
-{# Card da grade de leilões: foto, nome, edição, lance atual e tempo restante. #}
 {% macro cartao_leilao(c, nivel=2, prioridade=false) %}
 <li class="cartao">
   <img class="cartao__foto" src="{{ url_for('static', filename=c.foto) }}" alt="" width="600" height="838"

@@ -1,9 +1,3 @@
-"""Testes unitários das regras do lance, no domínio (sem Flask nem banco).
-
-Cada regra tem o caso válido e as violações. Leilão padrão: lance inicial R$ 100,00,
-incremento mínimo R$ 5,00, aberto de ontem até amanhã.
-"""
-
 import dataclasses
 from datetime import timedelta
 from decimal import Decimal
@@ -48,8 +42,6 @@ def recusa(cliente, leilao, valor, agora=AGORA) -> LanceRecusado:
         cliente.darLance(leilao, VALOR(valor), agora)
     return erro.value
 
-
-# ---------- RN01: calcularLanceMinimo() e validarLance(valor) ----------
 
 def test_sem_lances_o_minimo_e_o_lance_inicial(leilao):
     assert leilao.getMaiorLance() is None
@@ -102,14 +94,11 @@ def test_recusa_valor_zero_ou_negativo(leilao, ana, valor):
 
 
 def test_usa_o_incremento_gravado_no_leilao(vendedor, ana, bruno):
-    # RN17: o incremento é o da loja quando o leilão foi criado, gravado no próprio leilão.
     leilao = novo_leilao(vendedor, incremento="10.00")
     ana.darLance(leilao, VALOR("100.00"), AGORA)
     assert recusa(bruno, leilao, "109.99").motivo is MotivoRecusa.ABAIXO_DO_MINIMO
     bruno.darLance(leilao, VALOR("110.00"), AGORA)
 
-
-# ---------- RN12 e RF07: status ativo e dentro do prazo ----------
 
 @pytest.mark.parametrize("status", [StatusLeilao.PENDENTE, StatusLeilao.APROVADO,
                                     StatusLeilao.ENCERRADO, StatusLeilao.CANCELADO])
@@ -149,8 +138,6 @@ def test_rn05_fim_previsto_precisa_ser_depois_do_inicio(vendedor):
         novo_leilao(vendedor, inicio=AGORA, fim=AGORA)
 
 
-# ---------- RN15: Cliente.podeDarLance() ----------
-
 def test_cliente_sem_bloqueio_pode_dar_lance(ana, leilao):
     assert ana.podeDarLance() is True
     ana.darLance(leilao, VALOR("100.00"), AGORA)
@@ -171,27 +158,21 @@ def test_cliente_desativado_nao_pode_dar_lance(leilao):
 
 
 def test_o_lance_nao_depende_do_saldo_da_carteira(ana, leilao):
-    # Pelo diagrama, darLance não consulta a Carteira: saldo zero não impede o lance.
     assert ana.carteira.saldo == VALOR("0.00")
     ana.darLance(leilao, VALOR("5000.00"), AGORA)
 
-
-# ---------- RN11: ninguém dá lance no próprio leilão ----------
 
 def test_vendedor_nao_da_lance_no_proprio_leilao(vendedor, leilao):
     assert recusa(vendedor, leilao, "500.00").motivo is MotivoRecusa.PROPRIO_LEILAO
 
 
 def test_vendedor_e_reconhecido_mesmo_carregado_em_outro_objeto(leilao):
-    # O banco devolve objetos diferentes para a mesma pessoa: vale o id.
     mesmo_vendedor = novo_cliente(1, "100200300")
     assert recusa(mesmo_vendedor, leilao, "500.00").motivo is MotivoRecusa.PROPRIO_LEILAO
 
 
-# ---------- RN02: prorrogação nos últimos 3 minutos ----------
-
 def test_lance_com_menos_de_3_minutos_para_o_fim_prorroga_3_minutos(vendedor, ana):
-    fim = AGORA + JANELA_DE_PRORROGACAO - timedelta(seconds=1)  # faltam 2 min 59 s
+    fim = AGORA + JANELA_DE_PRORROGACAO - timedelta(seconds=1)
     leilao = novo_leilao(vendedor, fim=fim)
     ana.darLance(leilao, VALOR("100.00"), AGORA)
     assert leilao.dataFimPrevista == fim + PRORROGACAO
@@ -217,8 +198,6 @@ def test_lance_recusado_nao_prorroga(vendedor, ana):
     assert leilao.dataFimPrevista == fim
 
 
-# ---------- RN03: lance irrevogável ----------
-
 def test_lance_registrado_nao_pode_ser_alterado(leilao, ana):
     lance = ana.darLance(leilao, VALOR("100.00"), AGORA)
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -237,8 +216,6 @@ def test_lance_aceito_entra_na_lista_do_leilao(leilao, ana, bruno):
     assert leilao.lances == [primeiro, segundo]
     assert segundo.cliente is bruno and segundo.valor == VALOR("105.00")
 
-
-# ---------- RN13: empate de valor, vale o registrado primeiro ----------
 
 def test_empate_de_valor_vale_o_lance_registrado_primeiro(leilao, ana, bruno):
     depois = Lance(valor=VALOR("200.00"), dataHora=AGORA + timedelta(milliseconds=5), cliente=bruno)

@@ -1,5 +1,3 @@
-"""Criar conta: validações (e-mail único, CPF válido e único, senha >= 8) e o que é gravado."""
-
 from datetime import date
 
 import pytest
@@ -44,7 +42,7 @@ def test_cria_cliente_com_os_valores_iniciais_do_enunciado(repositorio):
 def test_cria_a_carteira_com_saldo_zero_junto_com_o_cliente(repositorio, banco):
     cliente = cadastrar(repositorio)
     carteiras = banco.execute("SELECT saldo_centavos FROM carteiras WHERE cliente_id = ?", (cliente.id,)).fetchall()
-    assert [linha["saldo_centavos"] for linha in carteiras] == [0]  # composição 1:1
+    assert [linha["saldo_centavos"] for linha in carteiras] == [0]
     assert repositorio.por_id(cliente.id).carteira.saldo == 0
 
 

@@ -21,8 +21,6 @@ def pytest_configure(config):
     config.option.browser_channel = "chrome" if chrome.exists() else "msedge"
 
 
-# ---------- Aplicação (banco SQLite temporário) ----------
-
 @pytest.fixture
 def app(tmp_path):
     return create_app({

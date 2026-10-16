@@ -1,16 +1,3 @@
-"""Pacote "Cartas e Leilões" do diagrama: Jogo, Carta, Leilao e Lance.
-
-As regras do lance (RF07) ficam aqui, sem Flask nem SQL:
-- RN01: calcularLanceMinimo() é o lanceInicial enquanto não há lances e, depois, o maior lance
-  mais o incrementoMinimo. validarLance(valor) recusa qualquer valor abaixo desse mínimo.
-- RN12 e RF07: só recebe lance o leilão com status "ativo", entre dataInicio e dataFimPrevista.
-- RN02: lance aceito com menos de 3 minutos para o fim prorroga dataFimPrevista em 3 minutos.
-- RN03: Lance é imutável e a lista de lances do leilão só cresce.
-- RN13: no empate de valor, vale o lance registrado primeiro (precisão de milissegundos).
-- RN05: todo leilão tem início e fim previsto, com o fim depois do início.
-RN11 (vendedor) e RN15 (cliente bloqueado) dependem de quem dá o lance: ficam em Cliente.darLance.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,28 +11,26 @@ from app.dominio.dinheiro import formatar_reais
 if TYPE_CHECKING:
     from app.dominio.contas import Cliente
 
-JANELA_DE_PRORROGACAO = timedelta(minutes=3)  # RN02: "faltarem menos de 3 minutos"
-PRORROGACAO = timedelta(minutes=3)  # RN02: "3 minutos adicionais"
+JANELA_DE_PRORROGACAO = timedelta(minutes=3)
+PRORROGACAO = timedelta(minutes=3)
 
 
 class StatusLeilao(StrEnum):
-    """Valores de Leilao.status (String no diagrama)."""
-
-    PENDENTE = "pendente"  # carta ainda não depositada e aprovada (RN12)
-    APROVADO = "aprovado"  # aprovado, aguardando a dataInicio
+    PENDENTE = "pendente"
+    APROVADO = "aprovado"
     ATIVO = "ativo"
     ENCERRADO = "encerrado"
     CANCELADO = "cancelado"
 
 
 class MotivoRecusa(StrEnum):
-    CLIENTE_BLOQUEADO = "cliente_bloqueado"  # RN15
-    PROPRIO_LEILAO = "proprio_leilao"  # RN11
-    LEILAO_INATIVO = "leilao_inativo"  # RN12
+    CLIENTE_BLOQUEADO = "cliente_bloqueado"
+    PROPRIO_LEILAO = "proprio_leilao"
+    LEILAO_INATIVO = "leilao_inativo"
     LEILAO_NAO_INICIADO = "leilao_nao_iniciado"
     PRAZO_ENCERRADO = "prazo_encerrado"
     VALOR_INVALIDO = "valor_invalido"
-    ABAIXO_DO_MINIMO = "abaixo_do_minimo"  # RN01
+    ABAIXO_DO_MINIMO = "abaixo_do_minimo"
 
 
 class LanceRecusado(Exception):
@@ -63,8 +48,6 @@ class Jogo:
 
 @dataclass(eq=False)
 class Carta:
-    """Jogo 1 — classifica — 0..* Carta; Cliente 1 — cadastra — 0..* Carta (o vendedor)."""
-
     nome: str
     jogo: Jogo
     edicao: str
@@ -81,11 +64,6 @@ class Carta:
 
 @dataclass(frozen=True, eq=False)
 class Lance:
-    """Leilao 1 ◆— 0..* Lance; Cliente 1 — registra — 0..* Lance.
-
-    Imutável (RN03): depois de registrado, o lance não muda de valor nem é removido.
-    """
-
     valor: Decimal
     dataHora: datetime
     cliente: Cliente
@@ -94,14 +72,6 @@ class Lance:
 
 @dataclass(eq=False)
 class Leilao:
-    """Carta 1 — é anunciada em — 0..* Leilao.
-
-    Métodos do diagrama: calcularLanceMinimo, validarLance e getMaiorLance. Auxiliares, fora do
-    diagrama: estaAberto, motivoDeRecusa, explicarRecusa e receberLance (o "recebe" da
-    composição com Lance). iniciar, encerrar, reofertarSegundoColocado e cancelar dependem de
-    Deposito e Transacao, que ficaram fora do escopo da v2.
-    """
-
     carta: Carta
     lanceInicial: Decimal
     incrementoMinimo: Decimal
@@ -119,7 +89,6 @@ class Leilao:
             raise ValueError("O lance inicial e o incremento mínimo precisam ser maiores que zero.")
 
     def getMaiorLance(self) -> Lance | None:
-        """O lance de maior valor; no empate, o registrado primeiro (RN13)."""
         maior = None
         for lance in self.lances:
             if (maior is None or lance.valor > maior.valor
@@ -128,22 +97,18 @@ class Leilao:
         return maior
 
     def calcularLanceMinimo(self) -> Decimal:
-        """RN01: lanceInicial sem lances; com lances, o maior lance + incrementoMinimo."""
         maior = self.getMaiorLance()
         if maior is None:
             return self.lanceInicial
         return maior.valor + self.incrementoMinimo
 
     def validarLance(self, valor: Decimal, agora: datetime | None = None) -> bool:
-        """Diagrama: validarLance(valor): boolean. O parâmetro agora existe para os testes."""
         return self.motivoDeRecusa(valor, agora) is None
 
     def estaAberto(self, agora: datetime) -> bool:
-        """Auxiliar: status ativo e dentro do prazo (RN12, RF07)."""
         return self.status == StatusLeilao.ATIVO and self.dataInicio <= agora < self.dataFimPrevista
 
     def motivoDeRecusa(self, valor: Decimal, agora: datetime | None = None) -> MotivoRecusa | None:
-        """Auxiliar: qual regra do leilão o valor violaria agora, ou None se o lance vale."""
         agora = agora or datetime.now(UTC)
         if self.status != StatusLeilao.ATIVO:
             return MotivoRecusa.LEILAO_INATIVO
@@ -158,7 +123,6 @@ class Leilao:
         return None
 
     def explicarRecusa(self, motivo: MotivoRecusa) -> str:
-        """Auxiliar: a mensagem que a tela mostra junto ao campo de valor."""
         if motivo is MotivoRecusa.ABAIXO_DO_MINIMO:
             maior = self.getMaiorLance()
             if maior is None:
@@ -178,7 +142,6 @@ class Leilao:
         }[motivo]
 
     def receberLance(self, lance: Lance) -> None:
-        """Auxiliar: valida o lance, acrescenta à lista e aplica a RN02 (prorrogação)."""
         motivo = self.motivoDeRecusa(lance.valor, lance.dataHora)
         if motivo is not None:
             raise LanceRecusado(motivo, self.explicarRecusa(motivo))

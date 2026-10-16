@@ -1,8 +1,6 @@
-// Melhorias progressivas: sem JavaScript tudo continua funcionando por links, formulários e recarga.
 (function () {
   "use strict";
 
-  // Valores em BRL no navegador: o mesmo formato que o servidor usa ("R$ 2.355,00").
   var brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   var numero = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -13,8 +11,6 @@
       if (el.textContent !== texto) el.textContent = texto;
     });
   }
-
-  /* ---------- Menu no celular ---------- */
 
   function iniciarMenu() {
     var nav = document.querySelector(".nav");
@@ -49,16 +45,12 @@
     document.addEventListener("click", function (e) {
       if (aberto() && !nav.contains(e.target)) fechar(false);
     });
-    // Tab depois do último item fecha o menu, em vez de deixá-lo aberto sobre a página.
     nav.addEventListener("focusout", function (e) {
       if (aberto() && celular.matches && e.relatedTarget && !nav.contains(e.relatedTarget)) fechar(false);
     });
     celular.addEventListener("change", function (e) { if (!e.matches) fechar(false); });
   }
 
-  /* ---------- Contagem regressiva ---------- */
-
-  // Diferença entre o relógio do servidor e o do navegador, para todos verem o mesmo tempo.
   var desvio = Date.parse(document.body.dataset.agora) - Date.now();
   if (isNaN(desvio)) desvio = 0;
 
@@ -93,8 +85,6 @@
     window.setInterval(atualizarContagens, 1000);
   }
 
-  /* ---------- Abas (padrão ARIA: setas, Home e End) ---------- */
-
   function iniciarAbas() {
     var raiz = document.querySelector("[data-abas]");
     if (!raiz) return;
@@ -125,7 +115,6 @@
         paineis[i].hidden = !ativa;
       });
       if (focar) botoes[indice].focus();
-      // A aba aberta vai para o endereço (#painel-detalhes): recarregar ou compartilhar mantém a aba.
       if (registrar) history.replaceState(null, "", indice === 0 ? location.pathname + location.search : "#" + paineis[indice].id);
     }
 
@@ -144,8 +133,6 @@
     var inicial = paineis.findIndex(function (painel) { return "#" + painel.id === location.hash; });
     selecionar(Math.max(inicial, 0), false, false);
   }
-
-  /* ---------- Galeria: miniaturas e foto ampliada ---------- */
 
   function iniciarGaleria() {
     var galeria = document.querySelector("[data-galeria]");
@@ -187,7 +174,6 @@
       if (legenda) legenda.textContent = fotos[atual].descricao.split(": ").pop() + " · use as setas para trocar de foto";
     };
 
-    // Com JS, o link para a foto vira um botão que abre o diálogo (Enter e Espaço).
     link.setAttribute("role", "button");
     link.setAttribute("aria-haspopup", "dialog");
     function ampliar(e) {
@@ -207,11 +193,8 @@
       if (e.key === "ArrowLeft") { e.preventDefault(); mostrar(atual - 1); }
       if (e.key === "ArrowRight") { e.preventDefault(); mostrar(atual + 1); }
     });
-    // Clique fora da foto (no fundo escurecido) também fecha.
     dialogo.addEventListener("click", function (e) { if (e.target === dialogo) dialogo.close(); });
   }
-
-  /* ---------- Lance sem recarregar a página ---------- */
 
   function iniciarLeilao() {
     var leilao = document.querySelector("[data-leilao]");
@@ -222,7 +205,6 @@
     var linhas = document.querySelector("[data-linhas-lances]");
     var campo = form && form.elements.valor;
     var valorConhecido = Number(painel.querySelector("[data-valor]").dataset.centavos);
-    // O campo vem preenchido com calcularLanceMinimo(); só é atualizado se a pessoa não o editou.
     var minimoNoCampo = campo ? campo.value : null;
 
     function anunciar(texto) {
@@ -248,7 +230,7 @@
       definirTexto("[data-fim-quando]", e.fim_quando);
       var contagem = painel.querySelector("[data-contagem]");
       if (contagem && contagem.dataset.alvo !== e.fim_iso) {
-        contagem.dataset.alvo = e.fim_iso;  // RN02: o prazo pode ter sido prorrogado
+        contagem.dataset.alvo = e.fim_iso;
         delete contagem.dataset.zerado;
         atualizarContagens();
       }
@@ -317,7 +299,7 @@
           .then(function (r) {
             if (r.status === 401 && r.dados.entrar) { window.location.assign(r.dados.entrar); return; }
             if (r.ok) {
-              minimoNoCampo = campo.value;  // depois do lance, o campo recebe o novo mínimo
+              minimoNoCampo = campo.value;
               aplicar(r.dados);
               valorConhecido = r.dados.estado.valor_centavos;
               textoDoOk.textContent = r.dados.mensagem;
@@ -339,7 +321,6 @@
       });
     }
 
-    // Lances de outros participantes: atualiza o painel e a tabela a cada 5 s.
     var url = leilao.dataset.estadoUrl;
     window.setInterval(function () {
       if (document.hidden) return;
@@ -358,8 +339,6 @@
         .catch(function () {});
     }, 5000);
   }
-
-  /* ---------- Aviso antes de sair de um formulário preenchido ---------- */
 
   function iniciarAvisoAoSair() {
     var form = document.querySelector("[data-avisar-ao-sair]");

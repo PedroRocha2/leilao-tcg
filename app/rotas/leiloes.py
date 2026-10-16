@@ -1,5 +1,3 @@
-"""Ver leilões ativos (RF06, RF08) e dar lance (RF07)."""
-
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
 
 from app.apresentacao import cartao, descricao_da_foto, estado, ficha, slug
@@ -59,7 +57,6 @@ def _pagina(leilao, repositorio, momento, status=200, erro=None, valor_digitado=
 
 
 def _json(leilao, momento) -> dict:
-    """Estado do painel e as linhas da tabela já renderizadas, para atualizar sem recarregar."""
     e = estado(leilao, momento, cliente_atual())
     return {
         "estado": {chave: valor for chave, valor in e.items() if chave != "linhas"},
@@ -89,8 +86,6 @@ def _recusar(leilao_id: int, mensagem: str, valor_digitado: str, motivo=None):
 
 @bp.post("/leiloes/<int:leilao_id>/lances")
 def dar_lance(leilao_id: int):
-    """RF07. As regras são do domínio e valem aqui no servidor, venha o pedido do formulário,
-    do fetch da página ou de qualquer outro cliente HTTP."""
     pagina = url_for(".detalhe", leilao_id=leilao_id)
     cliente = cliente_atual()
     if cliente is None:
@@ -104,7 +99,6 @@ def dar_lance(leilao_id: int):
     momento = agora()
     try:
         valor = ler_reais(texto)
-        # BEGIN IMMEDIATE: lê o maior lance e grava o novo sem outro lance no meio (RN13).
         with transacao(repositorio.conexao, imediata=True):
             leilao = repositorio.por_id(leilao_id)
             if leilao is None:

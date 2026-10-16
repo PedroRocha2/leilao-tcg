@@ -1,9 +1,3 @@
-"""Ver leilões ativos e dar lance pela camada HTTP: as regras valem no servidor.
-
-Dados da carga inicial usados aqui: Charizard tem lance atual de R$ 2.350,00 e incremento de
-R$ 5,00 (mínimo R$ 2.355,00); Mewtwo ainda não tem lances (lance inicial R$ 180,00).
-"""
-
 import re
 import threading
 from datetime import timedelta
@@ -31,13 +25,11 @@ def lances_gravados(banco, id_do_leilao):
         "SELECT valor_centavos FROM lances WHERE leilao_id = ? ORDER BY id", (id_do_leilao,))]
 
 
-# ---------- Lista de leilões ativos ----------
-
 def test_lista_mostra_os_leiloes_ativos_com_lance_atual_e_tempo(cliente_http):
     pagina = cliente_http.get("/leiloes").get_data(as_text=True)
     assert pagina.count('class="cartao"') == 15
     assert "R$ 2.350,00" in pagina and "Termina em" in pagina
-    assert "Lance inicial" in pagina  # leilões ainda sem lance mostram o lance inicial
+    assert "Lance inicial" in pagina
 
 
 def test_lista_nao_mostra_leilao_encerrado_nem_fora_do_status_ativo(cliente_http, banco):
@@ -60,11 +52,9 @@ def test_jogo_desconhecido_volta_para_todos(cliente_http):
     assert cliente_http.get("/leiloes?jogo=xadrez").headers["Location"] == "/leiloes"
 
 
-# ---------- Página do leilão ----------
-
 def test_pagina_tem_trilha_dados_da_carta_e_abas(cliente_http, charizard):
     pagina = cliente_http.get(f"/leiloes/{charizard}").get_data(as_text=True)
-    assert re.search(r"Leilões</a>.*Pokémon</a>.*Charizard", pagina, re.S)  # Leilões / Jogo / Carta
+    assert re.search(r"Leilões</a>.*Pokémon</a>.*Charizard", pagina, re.S)
     assert "Base Set (4/102)" in pagina and "Lightly Played (LP)" in pagina
     assert "Lance inicial R$ 1.500,00" in pagina and "Incremento mínimo R$ 5,00" in pagina
     for titulo in ("Lances", "Detalhes", "Descrição"):
@@ -103,10 +93,8 @@ def test_leilao_inexistente(cliente_http):
     assert cliente_http.get("/leiloes/9999").status_code == 404
 
 
-# ---------- Dar lance (RF07) ----------
-
 def test_lance_valido_e_gravado_e_o_minimo_recalculado(logado, banco, charizard, app):
-    resposta = lance_json(logado, charizard, "2.355,00")  # exatamente o mínimo: aceito
+    resposta = lance_json(logado, charizard, "2.355,00")
     assert resposta.status_code == 201
     corpo = resposta.get_json()
     assert corpo["ok"] is True

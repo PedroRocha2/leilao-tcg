@@ -1,5 +1,3 @@
-"""Jogo, Carta (com as fotos), Leilao e os Lances que ele recebe."""
-
 import sqlite3
 from collections import defaultdict
 from datetime import datetime
@@ -17,8 +15,6 @@ class RepositorioLeiloes:
         self.conexao = conexao
         self.clientes = clientes or RepositorioClientes(conexao)
 
-    # ---------- Jogos ----------
-
     def jogos(self) -> list[Jogo]:
         return [Jogo(nome=linha["nome"], id=linha["id"])
                 for linha in self.conexao.execute("SELECT id, nome FROM jogos ORDER BY nome")]
@@ -27,10 +23,7 @@ class RepositorioLeiloes:
         jogo.id = self.conexao.execute("INSERT INTO jogos (nome) VALUES (?)", (jogo.nome,)).lastrowid
         return jogo
 
-    # ---------- Consultas ----------
-
     def ativos(self, agora: datetime, jogo_id: int | None = None) -> list[Leilao]:
-        """Status ativo e dentro do prazo, os que terminam primeiro antes."""
         sql = f"SELECT l.id FROM leiloes l JOIN cartas c ON c.id = l.carta_id WHERE {_ABERTOS}"
         parametros: list = [para_texto(agora)] * 2
         if jogo_id is not None:
@@ -40,7 +33,6 @@ class RepositorioLeiloes:
         return self._carregar([linha["id"] for linha in self.conexao.execute(sql, parametros)])
 
     def ativos_por_jogo(self, agora: datetime) -> dict[int, int]:
-        """Quantos leilões ativos cada jogo tem agora (para os chips do filtro)."""
         linhas = self.conexao.execute(
             f"""SELECT c.jogo_id, COUNT(*) AS total FROM leiloes l JOIN cartas c ON c.id = l.carta_id
                  WHERE {_ABERTOS} GROUP BY c.jogo_id""",
@@ -71,7 +63,6 @@ class RepositorioLeiloes:
         return self._carregar([linha["id"] for linha in linhas])
 
     def _carregar(self, ids: list[int]) -> list[Leilao]:
-        """Monta leilões completos (carta, jogo, fotos, vendedor e lances) com poucas consultas."""
         if not ids:
             return []
         marcas = marcadores(len(ids))
@@ -130,10 +121,7 @@ class RepositorioLeiloes:
             ))
         return resultado
 
-    # ---------- Escrita ----------
-
     def adicionar(self, leilao: Leilao) -> Leilao:
-        """Grava a carta (com as fotos), o leilão e os lances que ele já tiver recebido."""
         carta = leilao.carta
         with transacao(self.conexao):
             carta.id = self.conexao.execute(
@@ -158,7 +146,6 @@ class RepositorioLeiloes:
         return leilao
 
     def salvar_lance(self, leilao: Leilao, lance: Lance) -> None:
-        """Grava o lance recebido e o fim previsto, que a RN02 pode ter prorrogado."""
         with transacao(self.conexao):
             self._inserir_lance(leilao, lance)
             self.conexao.execute(

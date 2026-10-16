@@ -1,5 +1,3 @@
-"""Construtores e atalhos usados pelos testes (domínio em memória e chamadas HTTP)."""
-
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -8,12 +6,9 @@ from app.dominio.contas import Cliente
 from app.dominio.cpf import completar_cpf
 from app.dominio.leiloes import Carta, Jogo, Leilao, StatusLeilao
 
-ITERACOES_DE_TESTE = 1_000  # PBKDF2 rápido nos testes; o app usa 600 mil
+ITERACOES_DE_TESTE = 1_000
 SENHA = "segredo-forte"
 CSRF = "token-de-teste"
-
-
-# ---------- Domínio (sem banco) ----------
 
 AGORA = datetime(2026, 10, 14, 15, 0, tzinfo=UTC)
 
@@ -38,8 +33,6 @@ def novo_leilao(vendedor: Cliente, *, lance_inicial="100.00", incremento="5.00",
                   dataInicio=inicio, dataFimPrevista=fim, status=status, id=1)
 
 
-# ---------- Atalhos HTTP ----------
-
 def leilao_id(banco, nome_da_carta: str) -> int:
     return banco.execute(
         "SELECT l.id FROM leiloes l JOIN cartas c ON c.id = l.carta_id WHERE c.nome = ?", (nome_da_carta,)
@@ -52,7 +45,7 @@ def criar_conta(navegador, email="ana@teste.com", cpf="529.982.247-25", senha=SE
     dados.update(extras)
     resposta = navegador.post("/criar-conta", data=dados)
     with navegador.session_transaction() as sessao:
-        sessao["csrf"] = CSRF  # o login gera uma sessão nova; o teste volta a fixar o token
+        sessao["csrf"] = CSRF
     return resposta
 
 
