@@ -23,6 +23,7 @@ def pytest_configure(config):
 
 @pytest.fixture
 def app(tmp_path):
+    """Cria e configura uma instância da aplicação para ambiente de testes."""
     return create_app({
         "TESTING": True,
         "DATABASE": str(tmp_path / "teste.sqlite3"),
@@ -33,6 +34,7 @@ def app(tmp_path):
 
 @pytest.fixture
 def cliente_http(app):
+    """Retorna cliente de testes com token CSRF inicializado na sessão."""
     navegador = app.test_client()
     with navegador.session_transaction() as sessao:
         sessao["csrf"] = CSRF
@@ -41,6 +43,7 @@ def cliente_http(app):
 
 @pytest.fixture
 def banco(app):
+    """Fornece conexão com o banco de dados SQLite temporário do teste."""
     conexao = conectar(app.config["DATABASE"])
     yield conexao
     conexao.close()

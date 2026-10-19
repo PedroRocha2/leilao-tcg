@@ -112,7 +112,7 @@ no formato da skill (`arquivo:linha`), apontando para a linha corrigida.
 ## 2. Lint da `design-taste-frontend`
 
 ```
-node .claude/skills/design-taste-frontend/scripts/lint.mjs app/templates app/static/css app/static/js
+node scripts/lint.mjs app/templates app/static/css app/static/js
 RESULT: 0 FAIL, 2 WARN
 ```
 

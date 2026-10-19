@@ -173,12 +173,12 @@ se chamar `lanceInicial`, `incrementoMinimo`, `dataInicio` e `dataFimPrevista`. 
   em alta resolução e normalizadas na proporção 63:88.
 - **Lance e carteira:** o lance não consulta o saldo da Carteira, como no diagrama (há um teste para isso).
 
-## Skills usadas
+## Referências de design e usabilidade
 
-`design-taste-frontend`, `image-to-code` e `web-design-guidelines` (da v1) e `redesign-existing-projects`
-(nova). O diagnóstico, o plano e a referência visual aprovados estão em
+Diretrizes de interface e boas práticas de acessibilidade e usabilidade aplicadas no projeto.
+O diagnóstico, o plano e a referência visual aprovados estão em
 [docs/v2/etapa1-plano.md](docs/v2/etapa1-plano.md) e [docs/v2/referencia/](docs/v2/referencia/). A auditoria
-das telas novas e a revalidação do RNF01 estão em [evidencias/auditoria-interface.md](evidencias/auditoria-interface.md).
+das telas novas e a validação do RNF01 estão em [evidencias/auditoria-interface.md](evidencias/auditoria-interface.md).
 
 ## Créditos das imagens
 

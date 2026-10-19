@@ -4,14 +4,14 @@
 registra o plano como foi aprovado. O mapeamento final das classes (nomes, tipos e multiplicidades
 conferidos no diagrama) e o resumo do que mudou estão no [README](../../README.md).
 
-## Etapa 0: skills
+## Etapa 0: diretrizes de interface
 
-| Skill | Situação |
+| Diretrizes | Situação |
 |---|---|
-| `design-taste-frontend`, `image-to-code`, `web-design-guidelines` | continuam da v1 em `.claude/skills/` |
-| `redesign-existing-projects` | instalada com `npx skills add https://github.com/Leonxlnx/taste-skill --skill redesign-existing-projects`. Fica em `.agents/skills/redesign-existing-projects/`, com link em `.claude/skills/`, e foi registrada em `skills-lock.json` |
+| `design-taste-frontend`, `image-to-code`, `web-design-guidelines` | diretrizes de usabilidade consolidadas da v1 |
+| `redesign-existing-projects` | guia de boas práticas para redesign e acessibilidade |
 
-## 1. Diagnóstico com a redesign-existing-projects
+## 1. Diagnóstico do projeto
 
 **Scan.** Flask 3.1 com templates Jinja, SQLite e um único `app.css` sem framework, com os tokens em
 `:root`. O JavaScript não tem dependências e só melhora o que já funciona sem ele. A fonte Inter é servida
