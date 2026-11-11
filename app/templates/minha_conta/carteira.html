@@ -1,12 +1,47 @@
 {% extends "minha_conta/_layout.html" %}
+{% import "_icones.html" as icone %}
 {% block titulo %}Carteira · Minha Conta{% endblock %}
 {% block secao %}
 <h2 id="titulo-secao">Carteira</h2>
 <div class="saldo">
   <p class="rotulo">Saldo disponível</p>
-  <p class="valor-grande">{{ saldo }}</p>
-  <p class="saldo__nota">Consulta apenas. O saldo não é usado para dar lances.</p>
+  <p class="valor-grande">{{ disponivel }}</p>
+  <p class="saldo__nota">{% if tem_bloqueio %}{{ bloqueado }} bloqueados por saque solicitado; saldo total de {{ saldo }}. {% endif %}O saldo vem do repasse das suas vendas e serve para pagar arremates ou sacar por Pix.</p>
 </div>
+
+{% if pode_sacar or erro %}
+<h3 class="subtitulo">Solicitar saque</h3>
+<form class="formulario formulario--estreito" method="post" action="{{ url_for('minha_conta.solicitar_saque') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% if erro %}<p class="campo__erro" id="erro-saque" role="alert">{{ icone.alerta() }}<span>{{ erro }}</span></p>{% endif %}
+  <div class="campo">
+    <label for="valor">Valor do saque (R$)</label>
+    <input id="valor" name="valor" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
+           value="{{ dados.get('valor', '') }}" required {% if erro %}aria-describedby="erro-saque"{% endif %}>
+    <p class="campo__ajuda">Até {{ disponivel }}.</p>
+  </div>
+  <div class="campo">
+    <label for="chave_pix">Chave Pix de destino</label>
+    <input id="chave_pix" name="chave_pix" type="text" autocomplete="off" spellcheck="false" maxlength="140"
+           value="{{ dados.get('chave_pix', '') }}" required>
+  </div>
+  <p class="formulario__nota">O valor fica bloqueado até a loja fazer a transferência. Se o saque for recusado, ele volta ao saldo disponível.</p>
+  <button class="botao botao--primario" type="submit">Solicitar saque</button>
+</form>
+{% endif %}
+
+{% if saques %}
+<h3 class="subtitulo">Saques</h3>
+<table class="tabela">
+  <caption class="vh">Saques solicitados, do mais recente para o mais antigo</caption>
+  <thead><tr><th scope="col">Solicitado em</th><th scope="col">Chave Pix</th><th scope="col">Situação</th><th scope="col" class="direita">Valor</th></tr></thead>
+  <tbody>
+    {% for s in saques %}
+    <tr><td>{{ s.quando }}</td><td translate="no">{{ s.chave }}</td><td>{{ s.status }}</td><td class="direita">{{ s.valor }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 
 <h3 class="subtitulo">Extrato</h3>
 {% if extrato %}

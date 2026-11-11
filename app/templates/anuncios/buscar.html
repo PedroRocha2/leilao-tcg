@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_icones.html" as icone %}
+{% block titulo %}Criar leilão{% endblock %}
+{% block descricao %}Escolha a sua carta no catálogo do jogo para criar um leilão.{% endblock %}
+{% block conteudo %}
+<nav class="trilha" aria-label="Você está em">
+  <ol>
+    <li><a href="{{ url_for('anuncios.meus_leiloes') }}">Vender</a></li>
+    <li><span aria-current="page">Criar leilão</span></li>
+  </ol>
+</nav>
+
+<div class="cabecalho">
+  <h1>Criar leilão</h1>
+  <p class="cabecalho__texto">Escolha o jogo e a sua carta. O nome, o código, as especificações, a imagem e o valor médio de mercado vêm do catálogo do jogo.</p>
+</div>
+
+<nav class="chips" aria-label="Jogo da carta">
+  <ul class="chips__lista">
+    {% for chip in chips %}
+    <li><a class="chip" href="{{ url_for('anuncios.novo', jogo=chip.slug) }}" {% if chip.atual %}aria-current="true"{% endif %}>{{ chip.nome }}</a></li>
+    {% endfor %}
+  </ul>
+</nav>
+
+<form class="busca" method="get" action="{{ url_for('anuncios.novo') }}" role="search" data-filtro-cartas>
+  <input type="hidden" name="jogo" value="{{ jogo.slug }}">
+  <label for="q">Filtrar as cartas de {{ jogo.nome }}</label>
+  <div class="busca__linha">
+    <input id="q" name="q" type="search" value="{{ q }}" autocomplete="off" spellcheck="false" enterkeyhint="search"
+           placeholder="{{ 'Nome ou código…' if exemplo else 'Nome da carta…' }}" minlength="2" aria-describedby="ajuda-filtro"
+           {% if not cartas %} autofocus{% endif %}>
+    <button class="botao botao--primario" type="submit">Filtrar</button>
+  </div>
+  <p class="campo__ajuda" id="ajuda-filtro">Use o nome em inglês, como está na carta{% if exemplo %}, ou o código impresso nela, como <span translate="no">{{ exemplo }}</span>{% endif %}.</p>
+  <p class="vh" role="status" data-filtro-status></p>
+</form>
+
+<div class="resultados" data-resultados>
+  {% if erro %}
+  <p class="campo__erro" id="erro-busca" role="alert">{{ icone.alerta() }}<span>{{ erro }}</span></p>
+  {% elif cartas %}
+  {% if q %}
+  <h2 class="subtitulo" id="titulo-resultados" data-resumo>{{ cartas|length }} {{ "carta encontrada" if cartas|length == 1 else "cartas encontradas" }} em {{ jogo.nome }}</h2>
+  {% if no_limite %}<p class="busca__nota">Estas são as primeiras {{ cartas|length }}. Se a sua não está aqui, digite mais do nome{% if exemplo %} ou do código{% endif %}.</p>{% endif %}
+  {% else %}
+  <h2 class="subtitulo" id="titulo-resultados" data-resumo>Sugestões de {{ jogo.nome }}</h2>
+  <p class="busca__nota">Lançamentos recentes do jogo. Se a sua carta não está aqui, use o filtro acima.</p>
+  {% endif %}
+  <ul class="grade" aria-labelledby="titulo-resultados">
+    {% for c in cartas %}
+    <li class="cartao">
+      <img class="cartao__foto" src="{{ url_for('anuncios.miniatura', jogo=jogo.slug, carta=c.id) }}" alt="" width="600" height="838"
+           {% if loop.index <= 5 %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+      <h3 class="cartao__nome" translate="no"><a href="{{ url_for('anuncios.novo', jogo=jogo.slug, carta=c.id) }}">{{ c.nome }}</a></h3>
+      <p class="cartao__ed" translate="no">{{ c.edicoes[0] if c.edicoes|length == 1 else c.edicoes|length ~ " edições" }}</p>
+      <p class="cartao__rotulo">Código</p>
+      <p class="cartao__codigo" translate="no">{{ c.codigo }}</p>
+      <p class="cartao__tempo" translate="no">{{ c.especificacoes[:3]|map("last")|join(" · ") }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif q %}
+  <div class="vazio">
+    <p class="vazio__titulo" data-resumo>Nenhuma carta de {{ jogo.nome }} com “{{ q }}” no nome{% if exemplo %} ou no código{% endif %}.</p>
+    <p>Confira a grafia: os catálogos usam o nome em inglês, como está impresso na carta. Você também pode trocar o jogo acima.</p>
+  </div>
+  {% else %}
+  <div class="vazio">
+    <p class="vazio__titulo" data-resumo>O catálogo de {{ jogo.nome }} não trouxe sugestões agora.</p>
+    <p>Use o filtro acima para procurar a sua carta.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

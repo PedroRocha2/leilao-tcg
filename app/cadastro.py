@@ -20,29 +20,38 @@ def normalizar_email(email: str | None) -> str:
     return (email or "").strip().lower()
 
 
-def criar_conta(repositorio: RepositorioClientes, *, nome: str, email: str, telefone: str, cpf: str,
-                senha: str, confirmacao: str, hoje: date, iteracoes: int) -> Cliente:
-    nome = " ".join((nome or "").split())
-    email = normalizar_email(email)
-    telefone = somente_digitos(telefone)
+def conferir_contato(repositorio: RepositorioClientes, nome: str, email: str, telefone: str,
+                     exceto: int | None = None) -> tuple[dict[str, str], dict[str, str]]:
+    """Nome, e-mail e telefone normalizados e os erros de cada um.
+
+    `exceto` é o id de quem já usa o e-mail: o próprio cliente, quando o administrador edita o cadastro.
+    """
+    dados = {"nome": " ".join((nome or "").split()), "email": normalizar_email(email),
+             "telefone": somente_digitos(telefone)}
     erros: dict[str, str] = {}
 
-    if not nome:
+    if not dados["nome"]:
         erros["nome"] = "Informe seu nome."
-    elif len(nome) > 120:
+    elif len(dados["nome"]) > 120:
         erros["nome"] = "Use no máximo 120 caracteres."
 
-    if not email:
+    if not dados["email"]:
         erros["email"] = "Informe seu e-mail."
-    elif not _EMAIL.match(email) or len(email) > 254:
+    elif not _EMAIL.match(dados["email"]) or len(dados["email"]) > 254:
         erros["email"] = "Informe um e-mail válido, como nome@provedor.com."
-    elif repositorio.email_em_uso(email):
+    elif repositorio.email_em_uso(dados["email"], exceto):
         erros["email"] = "Este e-mail já tem uma conta. Entre com ele ou use outro."
 
-    if not telefone:
+    if not dados["telefone"]:
         erros["telefone"] = "Informe seu telefone com DDD."
-    elif len(telefone) not in (10, 11):
+    elif len(dados["telefone"]) not in (10, 11):
         erros["telefone"] = "Use o DDD e o número: 10 ou 11 dígitos, como (48) 99123-4567."
+    return dados, erros
+
+
+def criar_conta(repositorio: RepositorioClientes, *, nome: str, email: str, telefone: str, cpf: str,
+                senha: str, confirmacao: str, hoje: date, iteracoes: int) -> Cliente:
+    dados, erros = conferir_contato(repositorio, nome, email, telefone)
 
     if not (cpf or "").strip():
         erros["cpf"] = "Informe seu CPF."
@@ -59,10 +68,8 @@ def criar_conta(repositorio: RepositorioClientes, *, nome: str, email: str, tele
     if erros:
         raise CadastroInvalido(erros)
 
-    cliente = Cliente(
-        nome=nome, email=email, telefone=telefone, cpf=somente_digitos(cpf),
-        senhaHash=senhas.gerar_hash(senha, iteracoes), dataCadastro=hoje,
-    )
+    cliente = Cliente(**dados, cpf=somente_digitos(cpf), senhaHash=senhas.gerar_hash(senha, iteracoes),
+                      dataCadastro=hoje)
     try:
         return repositorio.adicionar(cliente)
     except sqlite3.IntegrityError as erro:

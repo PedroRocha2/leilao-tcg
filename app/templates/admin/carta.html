@@ -1,0 +1,54 @@
+{% extends "admin/_layout.html" %}
+{% import "_icones.html" as icone %}
+{% from "_formulario.html" import campo %}
+{% set carta = leilao.carta %}
+{% block titulo %}{{ carta.nome }} · Cartas · Administração{% endblock %}
+{% block secao %}
+<p class="voltar"><a href="{{ url_for('admin.cartas') }}">Todas as cartas</a></p>
+<h2 id="titulo-secao" translate="no">{{ carta.nome }}</h2>
+<div class="admin__duas">
+  <div>
+    <img class="admin__foto" src="{{ url_da_foto(carta.fotos[0]) }}" alt="{{ carta.nome }}: foto da carta" width="600" height="838">
+    <dl class="ficha">
+      <div><dt>Leilão</dt><dd>{{ leilao.id }} <span aria-hidden="true">·</span> {{ leilao.status }}</dd></div>
+      <div><dt>Vendedor</dt><dd>{{ carta.vendedor.nome }}</dd></div>
+      <div><dt>Status da carta</dt><dd>{{ carta.status|capitalize }}</dd></div>
+      <div><dt>Lances</dt><dd>{{ leilao.lances|length }}</dd></div>
+    </dl>
+  </div>
+
+  <div>
+    <form class="formulario" method="post" action="{{ url_for('admin.carta', numero=leilao.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if erros %}<p class="campo__erro" role="alert">{{ icone.alerta() }}<span>Corrija os campos marcados para salvar.</span></p>{% endif %}
+      {{ campo("nome", "Nome da carta", dados.nome, erros.get("nome"), extras='maxlength="200"') }}
+      <div class="campo{% if erros.get('jogo') %} campo--erro{% endif %}">
+        <label for="jogo">Jogo</label>
+        <select id="jogo" name="jogo" required>
+          {% for jogo in jogos %}<option value="{{ jogo.id }}"{% if jogo.id|string == dados.jogo %} selected{% endif %}>{{ jogo.nome }}</option>{% endfor %}
+        </select>
+        {% if erros.get("jogo") %}<p class="campo__erro">{{ icone.alerta() }}<span>{{ erros.jogo }}</span></p>{% endif %}
+      </div>
+      {{ campo("edicao", "Edição", dados.edicao, erros.get("edicao"), extras='maxlength="200"') }}
+      <div class="campo{% if erros.get('condicao') %} campo--erro{% endif %}">
+        <label for="condicao">Condição</label>
+        <select id="condicao" name="condicao" required>
+          {% for condicao in condicoes %}<option value="{{ condicao }}"{% if condicao == dados.condicao %} selected{% endif %}>{{ condicao }}</option>{% endfor %}
+        </select>
+        {% if erros.get("condicao") %}<p class="campo__erro">{{ icone.alerta() }}<span>{{ erros.condicao }}</span></p>{% endif %}
+      </div>
+      <button class="botao botao--primario" type="submit">Salvar dados da carta</button>
+    </form>
+
+    <form class="admin__bloqueio" method="post" action="{{ url_for('admin.remover_carta', numero=leilao.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if pode_remover %}
+      <button class="botao botao--secundario" type="submit">Remover este cadastro</button>
+      <p class="campo__ajuda">Apaga a carta e o leilão dela. Não dá para desfazer.</p>
+      {% else %}
+      <p class="campo__ajuda">Este cadastro não pode ser removido: o leilão já foi aprovado ou já aconteceu.</p>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

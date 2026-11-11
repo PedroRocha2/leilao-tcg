@@ -1,0 +1,23 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Usuários · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Usuários</h2>
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Clientes cadastrados, em ordem alfabética</caption>
+  <thead><tr><th scope="col">Nome</th><th scope="col">E-mail</th><th scope="col">Telefone</th><th scope="col">Cliente desde</th><th scope="col">Situação</th><th scope="col" class="direita">Descumprimentos</th></tr></thead>
+  <tbody>
+    {% for c in clientes %}
+    <tr>
+      <td><a href="{{ url_for('admin.usuario', cliente_id=c.id) }}">{{ c.nome }}</a></td>
+      <td translate="no">{{ c.email }}</td>
+      <td>{{ c.telefone }}</td>
+      <td>{{ c.dataCadastro|data }}</td>
+      <td>{{ "Bloqueada" if c.bloqueado else "Ativa" }}</td>
+      <td class="direita">{{ c.descumprimentos }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

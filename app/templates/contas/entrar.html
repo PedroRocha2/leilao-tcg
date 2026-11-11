@@ -5,7 +5,7 @@
 {% block conteudo %}
 <div class="acesso">
   <h1>Entrar</h1>
-  <p class="acesso__texto">Use o e-mail e a senha da sua conta.</p>
+  <p class="acesso__texto">Use o e-mail e a senha da sua conta. O lojista entra com o nome de usuário.</p>
 
   {% if erro %}
   <div class="resumo-erros" role="alert" id="erro-entrar">
@@ -17,8 +17,8 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="proximo" value="{{ proximo }}">
     <div class="campo{% if erro %} campo--erro{% endif %}">
-      <label for="email">E-mail</label>
-      <input id="email" name="email" type="email" autocomplete="email" spellcheck="false" autocapitalize="off"
+      <label for="email">E-mail ou usuário</label>
+      <input id="email" name="email" type="text" inputmode="email" autocomplete="username" spellcheck="false" autocapitalize="off"
              value="{{ email }}" required {% if erro %}aria-invalid="true" aria-describedby="erro-entrar" autofocus{% endif %}>
     </div>
     <div class="campo{% if erro %} campo--erro{% endif %}">

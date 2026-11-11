@@ -1,0 +1,25 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Cartas · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Cartas cadastradas</h2>
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Cartas cadastradas, da mais recente para a mais antiga</caption>
+  <thead><tr><th scope="col">Carta</th><th scope="col">Jogo</th><th scope="col">Edição</th><th scope="col">Condição</th><th scope="col">Vendedor</th><th scope="col">Status da carta</th><th scope="col">Leilão</th></tr></thead>
+  <tbody>
+    {% for leilao in leiloes %}
+    {% set carta = leilao.carta %}
+    <tr>
+      <td translate="no"><a href="{{ url_for('admin.carta', numero=leilao.id) }}">{{ carta.nome }}</a></td>
+      <td>{{ carta.jogo.nome }}</td>
+      <td translate="no">{{ carta.edicao }}</td>
+      <td translate="no">{{ carta.condicao }}</td>
+      <td>{{ carta.vendedor.nome }}</td>
+      <td>{{ carta.status|capitalize }}</td>
+      <td>{{ leilao.id }} <span aria-hidden="true">·</span> {{ leilao.status }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

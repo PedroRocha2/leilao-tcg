@@ -1,0 +1,94 @@
+{
+ "data": {
+  "cards": [
+   {
+    "id": "30th-001",
+    "localId": "001",
+    "name": "Exeggcute",
+    "image": "https://assets.tcgdex.net/en/me/30th/001",
+    "rarity": "Common",
+    "hp": 60,
+    "types": [
+     "Grass"
+    ],
+    "category": "Pokemon",
+    "stage": "Basic",
+    "trainerType": null,
+    "energyType": null,
+    "illustrator": "Nelnal",
+    "set": {
+     "name": "30th Celebration",
+     "cardCount": {
+      "official": 128
+     }
+    }
+   },
+   {
+    "id": "30th-c-001",
+    "localId": "001",
+    "name": "Charizard",
+    "image": null,
+    "rarity": "None",
+    "hp": 120,
+    "types": [
+     "Fire"
+    ],
+    "category": "Pokemon",
+    "stage": "Stage2",
+    "trainerType": null,
+    "energyType": null,
+    "illustrator": "Mitsuhiro Arita",
+    "set": {
+     "name": "30th Classic Collection",
+     "cardCount": {
+      "official": 30
+     }
+    }
+   },
+   {
+    "id": "30th-002",
+    "localId": "002",
+    "name": "Alolan Exeggutor",
+    "image": "https://assets.tcgdex.net/en/me/30th/002",
+    "rarity": "Common",
+    "hp": 150,
+    "types": [
+     "Grass"
+    ],
+    "category": "Pokemon",
+    "stage": "Stage1",
+    "trainerType": null,
+    "energyType": null,
+    "illustrator": "Oswaldo KATO",
+    "set": {
+     "name": "30th Celebration",
+     "cardCount": {
+      "official": 128
+     }
+    }
+   },
+   {
+    "id": "30th-c-002",
+    "localId": "002",
+    "name": "Delcatty",
+    "image": null,
+    "rarity": "None",
+    "hp": 70,
+    "types": [
+     "Colorless"
+    ],
+    "category": "Pokemon",
+    "stage": "Stage1",
+    "trainerType": null,
+    "energyType": null,
+    "illustrator": "Atsuko Nishida",
+    "set": {
+     "name": "30th Classic Collection",
+     "cardCount": {
+      "official": 30
+     }
+    }
+   }
+  ]
+ }
+}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_icones.html" as icone %}
-{% block descricao %}Perfil, carteira e lances da sua conta no Leilão TCG.{% endblock %}
+{% block descricao %}Perfil, carteira, lances e arremates da sua conta no Leilão TCG.{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
   <h1>Minha Conta</h1>
@@ -13,6 +13,7 @@
       <li><a class="aba" href="{{ url_for('minha_conta.perfil') }}" {% if aba == "perfil" %}aria-current="page"{% endif %}>Perfil</a></li>
       <li><a class="aba" href="{{ url_for('minha_conta.carteira') }}" {% if aba == "carteira" %}aria-current="page"{% endif %}>Carteira</a></li>
       <li><a class="aba" href="{{ url_for('minha_conta.lances') }}" {% if aba == "lances" %}aria-current="page"{% endif %}>Meus lances</a></li>
+      <li><a class="aba" href="{{ url_for('minha_conta.arremates') }}" {% if aba == "arremates" %}aria-current="page"{% endif %}>Arremates</a></li>
     </ul>
   </nav>
   <form class="conta-abas__sair" method="post" action="{{ url_for('contas.sair') }}">

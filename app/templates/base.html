@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#252B3D">
-  <meta name="description" content="{% block descricao %}Leilões de cartas colecionáveis de Pokémon, Magic e Yu-Gi-Oh!, com a loja como intermediária.{% endblock %}">
+  <meta name="description" content="{% block descricao %}Leilões de cartas colecionáveis de Pokémon, Magic, Yu-Gi-Oh! e One Piece, com a loja como intermediária.{% endblock %}">
   <title>{% block titulo %}{% endblock %} · Leilão TCG</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <script>document.documentElement.classList.add("js")</script>
@@ -22,23 +22,49 @@
   {% set proximo_menu = request.args.get("proximo") if pagina_de_acesso else caminho_atual %}
   <header class="topo">
     <div class="container topo__barra">
-      <a class="marca" href="{{ url_for('leiloes.listar') }}" translate="no">Leilão TCG</a>
+      <a class="marca" href="{{ url_for('leiloes.inicio') }}" translate="no">Leilão TCG</a>
+      <form class="busca-topo" method="get" action="{{ url_for('leiloes.listar') }}" role="search" aria-label="Buscar leilões ativos">
+        <label class="vh" for="busca-jogo">Jogo</label>
+        <select id="busca-jogo" name="jogo">
+          <option value="">Todos os jogos</option>
+          {% for slug_do_jogo, nome_do_jogo in busca.jogos.items() %}
+          <option value="{{ slug_do_jogo }}"{% if slug_do_jogo == busca.jogo %} selected{% endif %}>{{ nome_do_jogo }}</option>
+          {% endfor %}
+        </select>
+        <label class="vh" for="busca-carta">Nome ou código da carta</label>
+        <input id="busca-carta" name="q" type="search" value="{{ busca.q }}" maxlength="{{ busca.tamanho }}" autocomplete="off"
+               spellcheck="false" enterkeyhint="search" placeholder="Nome ou código…">
+        <button class="busca-topo__botao" type="submit" aria-label="Buscar">{{ icone.busca() }}</button>
+      </form>
       <nav class="nav" aria-label="Principal">
         <button class="botao-menu" type="button" aria-expanded="false" aria-controls="menu-principal" hidden>
           {{ icone.menu() }}Menu
         </button>
         <ul class="nav__lista" id="menu-principal">
-          <li>
-            <a class="nav__item" href="{{ url_for('leiloes.listar') }}"
-               {% if request.endpoint == "leiloes.listar" %}aria-current="page"{% elif secao == "leiloes" %}aria-current="true"{% endif %}>Leilões</a>
-          </li>
+          {% set em_meus_lances = request.endpoint == "minha_conta.lances" %}
           {% if cliente %}
+          <li>
+            <a class="nav__item" href="{{ url_for('anuncios.meus_leiloes') }}"
+               {% if request.endpoint == "anuncios.meus_leiloes" %}aria-current="page"{% elif secao == "anuncios" %}aria-current="true"{% endif %}>Vender</a>
+          </li>
+          <li>
+            <a class="nav__item nav__item--contorno" href="{{ url_for('minha_conta.lances') }}" {% if em_meus_lances %}aria-current="page"{% endif %}>Meus lances</a>
+          </li>
           <li class="nav__conta">
-            <a class="nav__item" href="{{ url_for('minha_conta.perfil') }}" {% if secao == "minha_conta" %}aria-current="page"{% endif %}>
+            <a class="nav__item" href="{{ url_for('minha_conta.perfil') }}" {% if secao == "minha_conta" and not em_meus_lances %}aria-current="page"{% endif %}>
               {{ icone.usuario() }}Minha Conta
             </a>
           </li>
+          {% elif administrador %}
+          <li class="nav__conta">
+            <a class="nav__item" href="{{ url_for('admin.leiloes') }}" {% if secao == "admin" %}aria-current="page"{% endif %}>
+              {{ icone.usuario() }}Administração
+            </a>
+          </li>
           {% else %}
+          <li>
+            <a class="nav__item" href="{{ url_for('minha_conta.lances') }}">Meus lances</a>
+          </li>
           <li class="nav__conta">
             <a class="nav__item" href="{{ url_for('contas.entrar', proximo=proximo_menu or None) }}"
                {% if request.endpoint == "contas.entrar" %}aria-current="page"{% endif %}>Entrar</a>
@@ -65,7 +91,7 @@
   <footer class="rodape">
     <div class="container">
       <p><span translate="no">Leilão&nbsp;TCG</span> · projeto da disciplina Engenharia de Software I (UFSC).</p>
-      <p>Imagens das cartas © The Pokémon Company, Wizards of the Coast e Konami, obtidas em pokemontcg.io, Scryfall e YGOPRODeck.</p>
+      <p>Imagens das cartas © The Pokémon Company, Wizards of the Coast, Konami e Bandai, obtidas em pokemontcg.io, TCGdex, Scryfall, YGOPRODeck, OPTCG API e onepiece-cardgame.com.</p>
     </div>
   </footer>
 </body>

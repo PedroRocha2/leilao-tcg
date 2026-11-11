@@ -1,0 +1,28 @@
+{
+ "data": {
+  "card": {
+   "id": "base1-4",
+   "localId": "4",
+   "name": "Charizard",
+   "image": "https://assets.tcgdex.net/en/base/base1/4",
+   "rarity": "Rare",
+   "hp": 120,
+   "types": [
+    "Fire"
+   ],
+   "category": "Pokemon",
+   "stage": "Stage2",
+   "trainerType": null,
+   "energyType": null,
+   "illustrator": "Mitsuhiro Arita",
+   "set": {
+    "id": "base1",
+    "name": "Base Set",
+    "cardCount": {
+     "official": 102,
+     "total": 102
+    }
+   }
+  }
+ }
+}

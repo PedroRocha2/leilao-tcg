@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Vender{% endblock %}
+{% block descricao %}Crie um leilão para a sua carta e acompanhe a situação de cada carta que você anunciou.{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Vender</h1>
+  <p class="cabecalho__texto">Crie um leilão para a sua carta e acompanhe a situação de cada uma.</p>
+  <a class="botao botao--primario" href="{{ url_for('anuncios.novo') }}">Criar leilão</a>
+</div>
+
+<h2 class="subtitulo">Minhas cartas</h2>
+{% if itens %}
+<ul class="meus-lances">
+  {% for item in itens %}
+  <li class="meu-lance">
+    <img class="meu-lance__foto" src="{{ url_da_foto(item.foto) }}" alt="" width="600" height="838" loading="lazy" decoding="async">
+    <div class="meu-lance__carta">
+      <h3 class="meu-lance__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=item.id) }}">{{ item.nome }}</a></h3>
+      <p class="meu-lance__ed" translate="no">{{ item.edicao }}</p>
+      <p class="status{% if not item.em_andamento %} status--fechado{% endif %}"><span class="status__ponto" aria-hidden="true"></span><span class="vh">Status da carta: </span>{{ item.situacao }}</p>
+      {% if item.motivo_recusa %}<p class="meu-lance__ed">Motivo da recusa: {{ item.motivo_recusa }}</p>{% endif %}
+      {% if item.liquido %}<p class="meu-lance__ed">Você recebe {{ item.liquido }}, já sem a taxa da loja, quando a carta for entregue.</p>{% endif %}
+    </div>
+    <dl class="meu-lance__numeros">
+      <div><dt>Lance inicial</dt><dd>{{ item.lance_inicial }}</dd></div>
+      <div><dt>{{ item.rotulo_valor }}</dt><dd>{{ item.valor }}</dd></div>
+      <div><dt>Início</dt><dd>{{ item.inicio }}</dd></div>
+      <div><dt>Fim previsto</dt><dd>{{ item.fim }}</dd></div>
+    </dl>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="vazio vazio--compacto">
+  <p class="vazio__titulo">Você ainda não anunciou nenhuma carta.</p>
+  <p>Procure a sua carta no catálogo do jogo, informe o lance mínimo e o período do leilão e leve a carta à loja. O leilão começa depois que a loja confere a carta e aprova.</p>
+</div>
+{% endif %}
+{% endblock %}

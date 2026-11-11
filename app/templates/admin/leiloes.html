@@ -1,0 +1,46 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Leilões · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Leilões aguardando aprovação</h2>
+<p class="admin__nota">Confira a carta que o vendedor trouxe à loja. Aprovar registra o depósito e libera o leilão; recusar exige o motivo, que o vendedor vê em Vender.</p>
+{% if pendentes %}
+<ul class="pendentes">
+  {% for leilao in pendentes %}
+  {% set carta = leilao.carta %}
+  <li class="pendente">
+    <img class="pendente__foto" src="{{ url_da_foto(carta.fotos[0]) }}" alt="{{ carta.nome }}: foto enviada pelo vendedor" width="600" height="838" loading="lazy" decoding="async">
+    <div class="pendente__dados">
+      <h3 class="pendente__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=leilao.id) }}">{{ carta.nome }}</a></h3>
+      <p class="pendente__sub">Leilão {{ leilao.id }} <span aria-hidden="true">·</span> {{ carta.jogo.nome }} <span aria-hidden="true">·</span> <span translate="no">{{ carta.edicao }}</span> <span aria-hidden="true">·</span> <span translate="no">{{ carta.condicao }}</span></p>
+      <dl class="pendente__numeros">
+        <div><dt>Vendedor</dt><dd>{{ carta.vendedor.nome }}</dd></div>
+        <div><dt>Lance inicial</dt><dd>{{ leilao.lanceInicial|reais }}</dd></div>
+        <div><dt>Início</dt><dd>{{ leilao.dataInicio|data_hora }}</dd></div>
+        <div><dt>Fim previsto</dt><dd>{{ leilao.dataFimPrevista|data_hora }}</dd></div>
+      </dl>
+      <p class="pendente__descricao">{{ carta.descricao }}</p>
+      <p><a href="{{ url_for('admin.carta', numero=leilao.id) }}">Corrigir os dados da carta</a></p>
+    </div>
+    <div class="pendente__acoes">
+      <form method="post" action="{{ url_for('admin.aprovar', numero=leilao.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="botao botao--primario botao--largo" type="submit">Aprovar e registrar depósito</button>
+      </form>
+      <form class="campo" method="post" action="{{ url_for('admin.recusar', numero=leilao.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="motivo-{{ leilao.id }}">Motivo da recusa</label>
+        <input id="motivo-{{ leilao.id }}" name="motivo" type="text" maxlength="200" autocomplete="off" required
+               placeholder="Carta diferente da anunciada…">
+        <button class="botao botao--secundario botao--largo" type="submit">Recusar leilão</button>
+      </form>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="vazio vazio--compacto">
+  <p class="vazio__titulo">Nenhum leilão aguardando aprovação.</p>
+  <p>Quando um cliente criar um leilão em Vender, ele aparece aqui para a conferência da carta.</p>
+</div>
+{% endif %}
+{% endblock %}

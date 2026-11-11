@@ -1,0 +1,26 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Auditoria · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Log de auditoria</h2>
+<p class="admin__nota">As {{ operacoes|length }} operações mais recentes. As do próprio sistema, como o encerramento de um leilão, aparecem sem usuário e sem IP.</p>
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Operações registradas, da mais recente para a mais antiga</caption>
+  <thead><tr><th scope="col">Data e hora</th><th scope="col">Usuário</th><th scope="col">Operação</th><th scope="col" class="direita">Valor</th><th scope="col">IP</th><th scope="col">Detalhe</th></tr></thead>
+  <tbody>
+    {% for op in operacoes %}
+    <tr>
+      <td>{{ op.dataHora|data_hora }}</td>
+      <td>{% if op.usuarioId %}{{ op.usuarioNome or "Conta removida" }} <span class="admin__id">#{{ op.usuarioId }}</span>{% else %}Sistema{% endif %}</td>
+      <td>{{ op.operacao }}</td>
+      <td class="direita">{{ op.valor|reais if op.valor is not none else "—" }}</td>
+      <td translate="no">{{ op.ip or "—" }}</td>
+      <td>{{ op.detalhe }}</td>
+    </tr>
+    {% else %}
+    <tr class="vazia"><td colspan="6">Nenhuma operação registrada.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -2,15 +2,14 @@ import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from app.dominio.contas import Cliente
+from app.dominio.contas import Administrador, Cliente
 from app.dominio.cpf import completar_cpf
-from app.dominio.leiloes import Carta, Jogo, Leilao, StatusLeilao
-from app.dominio.senhas import senha_inutilizavel
+from app.dominio.leiloes import INCREMENTO_DA_LOJA, Carta, Jogo, Leilao, StatusCarta, StatusLeilao
+from app.dominio.loja import ConfiguracaoLoja
+from app.dominio.senhas import gerar_hash, senha_inutilizavel
 from app.repositorios.clientes import RepositorioClientes
 from app.repositorios.leiloes import RepositorioLeiloes
-
-INCREMENTO_DA_LOJA = Decimal("5.00")
-STATUS_DA_CARTA_EM_LEILAO = "em leilão"
+from app.repositorios.loja import RepositorioLoja
 
 h = timedelta(hours=1)
 m = timedelta(minutes=1)
@@ -103,9 +102,16 @@ CARTAS = [
 FOTOS = ("frente", "arte", "canto")
 
 
-def popular(conexao: sqlite3.Connection, agora: datetime) -> None:
+def popular(conexao: sqlite3.Connection, agora: datetime, administrador: dict | None = None) -> None:
     clientes_repo = RepositorioClientes(conexao)
     leiloes_repo = RepositorioLeiloes(conexao, clientes_repo)
+    RepositorioLoja(conexao).salvar_configuracao(ConfiguracaoLoja())
+    if administrador:
+        # O lojista entra com um nome de usuário, guardado no lugar do e-mail.
+        clientes_repo.adicionar_administrador(Administrador(
+            nome="Administrador da loja", email=administrador["login"].strip().lower(), telefone="",
+            senhaHash=gerar_hash(administrador["senha"], administrador["iteracoes"]),
+            dataCadastro=agora.date()))
 
     clientes = [
         clientes_repo.adicionar(Cliente(
@@ -119,7 +125,7 @@ def popular(conexao: sqlite3.Connection, agora: datetime) -> None:
     for (jogo, nome, edicao, condicao, descricao, arquivo, vendedor, inicial,
          inicio, fim, lances) in CARTAS:
         carta = Carta(nome=nome, jogo=jogos[jogo], edicao=edicao, condicao=condicao,
-                      descricao=descricao, vendedor=clientes[vendedor], status=STATUS_DA_CARTA_EM_LEILAO)
+                      descricao=descricao, vendedor=clientes[vendedor], status=StatusCarta.EM_LEILAO)
         for foto in FOTOS:
             carta.adicionarFoto(f"img/cartas/{arquivo}-{foto}.webp")
         leilao = Leilao(carta=carta, lanceInicial=Decimal(inicial), incrementoMinimo=INCREMENTO_DA_LOJA,

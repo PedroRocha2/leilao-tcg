@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_leiloes.html" import lista_de_leiloes, resumo_dos_leiloes %}
+{% block titulo %}Leilões de cartas de TCG{% endblock %}
+{% block conteudo %}
+<section class="destaque" aria-labelledby="titulo-destaque">
+  <div class="destaque__texto">
+    <h1 id="titulo-destaque">Compre e venda cartas de TCG em leilão</h1>
+    <p class="destaque__sub">Dê lances nas cartas que faltam na sua coleção ou anuncie as suas. A loja confere cada carta antes de o leilão começar.</p>
+    <div class="destaque__acoes">
+      <a class="botao botao--primario" href="#leiloes">Quero comprar</a>
+      {% if not administrador %}
+      {% set criar = url_for('anuncios.novo') %}
+      <a class="botao botao--secundario" href="{{ criar if cliente else url_for('contas.entrar', proximo=criar) }}">Quero vender</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <nav class="destaque__jogos" aria-labelledby="titulo-jogos">
+    <h2 class="destaque__rotulo" id="titulo-jogos">Escolha seu jogo</h2>
+    <ul class="jogos">
+      {% for j in jogos %}
+      <li>
+        <a class="jogo-card" href="{{ url_for('leiloes.jogo', slug=j.slug) }}">
+          {% if j.capa %}<img class="jogo-card__capa" src="{{ url_for('static', filename=j.capa) }}" alt="" width="480" height="480" decoding="async">{% endif %}
+          <span class="jogo-card__nome">{{ j.nome }}</span>
+          <span class="jogo-card__qtd">{{ j.total }} {{ "leilão ativo" if j.total == 1 else "leilões ativos" }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+</section>
+
+<section class="vitrine" id="leiloes" aria-labelledby="titulo-leiloes">
+  <h2 class="vitrine__titulo" id="titulo-leiloes">Leilões ativos</h2>
+  <p class="vitrine__texto">{{ resumo_dos_leiloes(cartoes) }}</p>
+  {{ lista_de_leiloes(cartoes, nivel=3) }}
+</section>
+{% endblock %}
