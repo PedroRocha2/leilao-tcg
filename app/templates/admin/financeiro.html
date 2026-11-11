@@ -1,0 +1,35 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Financeiro · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Extrato financeiro</h2>
+<form class="periodo" method="get" action="{{ url_for('admin.financeiro') }}">
+  <div class="campo"><label for="de">De</label><input id="de" name="de" type="date" value="{{ de }}" required></div>
+  <div class="campo"><label for="ate">Até</label><input id="ate" name="ate" type="date" value="{{ ate }}" required></div>
+  <button class="botao botao--primario" type="submit">Ver período</button>
+</form>
+
+<dl class="totais">
+  <div><dt>Arremates</dt><dd>{{ totais.arremates|reais }}</dd></div>
+  <div><dt>Pagamentos recebidos</dt><dd>{{ totais.pagamentos|reais }}</dd></div>
+  <div><dt>Taxas retidas</dt><dd>{{ totais.taxas|reais }}</dd></div>
+  <div><dt>Repasses aos vendedores</dt><dd>{{ totais.repasses|reais }}</dd></div>
+  <div><dt>Saques pagos</dt><dd>{{ totais.saques|reais }}</dd></div>
+</dl>
+
+<h3 class="subtitulo">Lançamentos do período</h3>
+{% if lancamentos %}
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Lançamentos do período, do mais recente para o mais antigo</caption>
+  <thead><tr><th scope="col">Data e hora</th><th scope="col">Tipo</th><th scope="col">Descrição</th><th scope="col" class="direita">Valor</th></tr></thead>
+  <tbody>
+    {% for quando, tipo, descricao, valor in lancamentos %}
+    <tr><td>{{ quando|data_hora }}</td><td>{{ tipo }}</td><td>{{ descricao }}</td><td class="direita">{{ valor|reais }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="vazio vazio--compacto"><p class="vazio__titulo">Nenhum lançamento neste período.</p></div>
+{% endif %}
+{% endblock %}

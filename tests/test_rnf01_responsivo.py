@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from werkzeug.serving import make_server
 
-from apoio import ITERACOES_DE_TESTE, SENHA
+from apoio import ADMIN_LOGIN, ADMIN_SENHA, ITERACOES_DE_TESTE, SENHA, catalogo_de_teste
 from app import create_app
 from app.cadastro import criar_conta
 from app.db import conectar
@@ -27,6 +27,9 @@ def servidor(tmp_path):
         "DATABASE": str(banco),
         "SECRET_KEY": "chave-rnf01",
         "PBKDF2_ITERACOES": ITERACOES_DE_TESTE,
+        "CATALOGO": catalogo_de_teste(),
+        "PASTA_DE_FOTOS": str(tmp_path / "fotos"),
+        "PASTA_DO_CATALOGO": str(tmp_path / "catalogo"),
     })
     conexao = conectar(str(banco))
     criar_conta(RepositorioClientes(conexao), nome="Teste Responsivo", email=EMAIL, telefone="48991234567",
@@ -150,11 +153,34 @@ def test_lista_de_leiloes_sem_rolagem_horizontal(servidor, browser, largura, alt
     page = contexto.new_page()
     page.goto(f"{servidor['url']}/leiloes")
     pagina = largura_da_pagina(page)
-    chips = medir_todos(page, ".chip")
-    MEDICOES[f"listagem-{largura}px"] = {"pagina": pagina, "chips": chips}
+    busca = medir_todos(page, "#busca-jogo, #busca-carta, .busca-topo__botao")
+    MEDICOES[f"listagem-{largura}px"] = {"pagina": pagina, "busca": busca}
     assert pagina["rolagem"] <= pagina["janela"]
-    assert all(a >= ALVO_MINIMO and d <= largura for _, a, d in chips)
+    assert len(busca) == 3 and all(a >= ALVO_MINIMO and d <= largura for _, a, d in busca)
+    assert medir(page, "#busca-carta")["fonte"] >= 16 and medir(page, "#busca-carta")["largura"] >= 120
     page.screenshot(path=str(EVIDENCIAS / f"listagem-{largura}px.png"))
+    contexto.close()
+
+
+@pytest.mark.parametrize("largura, altura", LARGURAS, ids=[f"{l}px" for l, _ in LARGURAS])
+def test_pagina_inicial_empilha_o_destaque_sem_rolagem_horizontal(servidor, browser, largura, altura):
+    contexto = browser.new_context(viewport={"width": largura, "height": altura})
+    page = contexto.new_page()
+    page.goto(f"{servidor['url']}/")
+    pagina = largura_da_pagina(page)
+    assert pagina["rolagem"] <= pagina["janela"]
+
+    texto, jogos = medir(page, ".destaque__texto"), medir(page, ".destaque__jogos")
+    assert texto["esquerda"] == jogos["esquerda"], "no celular e no tablet os jogos ficam abaixo do texto"
+    assert page.eval_on_selector(".destaque__jogos", "el => el.getBoundingClientRect().top") > page.eval_on_selector(
+        ".destaque__texto", "el => el.getBoundingClientRect().bottom")
+    botoes = medir_todos(page, ".destaque__acoes .botao")
+    cartoes = medir_todos(page, ".jogo-card")
+    assert len(botoes) == 2 and all(a >= ALVO_MINIMO and d <= largura for _, a, d in botoes)
+    assert len(cartoes) == 4 and all(a >= ALVO_MINIMO and d <= largura for _, a, d in cartoes)
+    MEDICOES[f"inicio-{largura}px"] = {"pagina": pagina, "botoes": botoes, "jogos": cartoes}
+    page.wait_for_function("[...document.querySelectorAll('.jogo-card__capa')].every(i => i.complete && i.naturalWidth)")
+    page.screenshot(path=str(EVIDENCIAS / f"inicio-{largura}px.png"))
     contexto.close()
 
 
@@ -167,10 +193,66 @@ def test_telas_de_conta_sem_rolagem_horizontal(servidor, browser, caminho):
     contexto.close()
 
 
+def test_abas_de_minha_conta_cabem_no_celular(servidor, browser):
+    contexto = browser.new_context(viewport={"width": 360, "height": 640})
+    page = contexto.new_page()
+    entrar(page, servidor, "/minha-conta/arremates")
+    assert largura_da_pagina(page)["rolagem"] <= 360
+    abas = medir_todos(page, ".conta-abas .aba")
+    assert len(abas) == 4 and all(a >= ALVO_MINIMO and d <= 360 for _, a, d in abas)
+    lista = page.eval_on_selector(".conta-abas__lista", "el => [el.scrollWidth, el.clientWidth]")
+    assert lista[0] <= lista[1], "as abas não cabem e a última fica escondida"
+    assert medir(page, ".conta-abas__sair .botao")["direita"] <= 360
+    contexto.close()
+
+
+def test_criar_leilao_cabe_no_celular(servidor, browser):
+    contexto = browser.new_context(viewport={"width": 360, "height": 640})
+    page = contexto.new_page()
+    entrar(page, servidor, "/vender")
+    assert largura_da_pagina(page)["rolagem"] <= 360
+
+    page.goto(f"{servidor['url']}/vender/novo?jogo=pokemon&q=charizard")
+    assert largura_da_pagina(page)["rolagem"] <= 360
+    chips = medir_todos(page, ".chip")
+    assert len(chips) == 4 and all(a >= ALVO_MINIMO and d <= 360 for _, a, d in chips)
+    campo, botao = medir(page, "#q"), medir(page, ".busca button")
+    assert campo["fonte"] >= 16 and campo["largura"] >= 160 and campo["altura"] >= ALVO_MINIMO
+    assert botao["direita"] <= 360 and botao["altura"] >= ALVO_MINIMO
+    assert all(d <= 360 for _, _, d in medir_todos(page, ".cartao"))
+
+    page.goto(f"{servidor['url']}/vender/novo?jogo=yu-gi-oh&carta=46986414")
+    assert largura_da_pagina(page)["rolagem"] <= 360
+    for seletor in ("#edicao", "#condicao", "#descricao", "#lance_inicial", "#inicio", "#fim",
+                    "form.formulario button[type=submit]"):
+        caixa = medir(page, seletor)
+        assert caixa["esquerda"] >= 0 and caixa["direita"] <= 360, f"{seletor} sai da tela"
+        assert caixa["fonte"] >= 16 and caixa["altura"] >= ALVO_MINIMO and caixa["largura"] >= 200, seletor
+    contexto.close()
+
+
+def test_administracao_cabe_no_celular(servidor, browser):
+    contexto = browser.new_context(viewport={"width": 360, "height": 640})
+    page = contexto.new_page()
+    page.goto(f"{servidor['url']}/entrar")
+    page.fill("#email", ADMIN_LOGIN)
+    page.fill("#senha", ADMIN_SENHA)
+    page.click("form.formulario button[type=submit]")
+    page.wait_for_url("**/admin/leiloes")
+    abas = medir_todos(page, ".conta-abas .aba")
+    assert len(abas) == 9 and all(a >= ALVO_MINIMO and d <= 360 for _, a, d in abas)
+    for caminho in ("leiloes", "entregas", "saques", "usuarios", "usuarios/2", "cartas", "cartas/1", "historico",
+                    "financeiro", "configuracoes", "auditoria"):
+        page.goto(f"{servidor['url']}/admin/{caminho}")
+        pagina = largura_da_pagina(page)
+        assert pagina["rolagem"] <= pagina["janela"], f"/admin/{caminho} rola na horizontal"
+    contexto.close()
+
+
 def test_menu_superior_recolhe_num_botao_acessivel_por_teclado(servidor, browser):
     contexto = browser.new_context(viewport={"width": 360, "height": 640})
     page = contexto.new_page()
-    page.goto(f"{servidor['url']}/leiloes")
+    page.goto(f"{servidor['url']}/entrar")
 
     lista = page.locator("#menu-principal")
     botao = page.locator(".botao-menu")
@@ -187,12 +269,14 @@ def test_menu_superior_recolhe_num_botao_acessivel_por_teclado(servidor, browser
     ativo = page.evaluate("""() => { const el = document.activeElement;
         return {atual: el.getAttribute('aria-current'), texto: el.textContent.trim(),
                 fundo: getComputedStyle(el).backgroundColor, cor: getComputedStyle(el).color}; }""")
-    assert ativo == {"atual": "page", "texto": "Leilões", "fundo": "rgb(0, 56, 215)", "cor": "rgb(255, 255, 255)"}
+    assert ativo == {"atual": "page", "texto": "Entrar", "fundo": "rgb(0, 56, 215)", "cor": "rgb(255, 255, 255)"}
     assert all(a >= ALVO_MINIMO for _, a, _ in medir_todos(page, "#menu-principal .nav__item"))
+    assert [texto.strip() for texto in page.locator("#menu-principal .nav__item").all_inner_texts()] == [
+        "Meus lances", "Entrar", "Criar conta"]
     page.screenshot(path=str(EVIDENCIAS / "menu-360px-aberto.png"))
 
     page.keyboard.press("Tab")
-    assert page.evaluate("document.activeElement.textContent.trim()") == "Entrar"
+    assert page.evaluate("document.activeElement.textContent.trim()") == "Criar conta"
     page.keyboard.press("Escape")
     assert not lista.is_visible()
     assert botao.get_attribute("aria-expanded") == "false"
@@ -205,6 +289,11 @@ def test_menu_no_desktop_fica_aberto_sem_botao(servidor, browser):
     page = contexto.new_page()
     page.goto(f"{servidor['url']}/leiloes")
     assert not page.locator(".botao-menu").is_visible()
-    for rotulo in ("Leilões", "Entrar", "Criar conta"):
+    for rotulo in ("Meus lances", "Entrar", "Criar conta"):
         assert page.locator("#menu-principal").get_by_text(rotulo, exact=True).is_visible()
+    # O título fica à esquerda, a busca no meio e a conta à direita, na mesma linha.
+    marca, busca, menu = medir(page, ".marca"), medir(page, ".busca-topo"), medir(page, "#menu-principal")
+    assert marca["esquerda"] < 60 and marca["direita"] < busca["esquerda"] and busca["direita"] < menu["esquerda"]
+    assert menu["direita"] > 1200 and busca["largura"] >= 400
+    assert page.eval_on_selector(".topo", "el => el.getBoundingClientRect().height") == 64
     contexto.close()

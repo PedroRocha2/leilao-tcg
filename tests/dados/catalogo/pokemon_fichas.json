@@ -1,0 +1,107 @@
+{
+ "base1-4": {
+  "id": "base1-4",
+  "localId": "4",
+  "name": "Charizard",
+  "pricing": {
+   "cardmarket": {
+    "updated": "2026-11-10T23:49:36.539Z",
+    "unit": "EUR",
+    "idProduct": 273699,
+    "avg": 453.87,
+    "low": 89.99,
+    "trend": 402.26,
+    "avg1": 767.5,
+    "avg7": 274.55,
+    "avg30": 387.61,
+    "avg-holo": null,
+    "low-holo": null,
+    "trend-holo": 123.63,
+    "avg1-holo": 207.4,
+    "avg7-holo": 129.55,
+    "avg30-holo": 202.71
+   },
+   "tcgplayer": {
+    "unit": "USD",
+    "updated": "2026-11-10T23:49:37.157Z",
+    "holofoil": {
+     "productId": 42382,
+     "lowPrice": 475,
+     "midPrice": 675.1,
+     "highPrice": 3499.1,
+     "marketPrice": 922.32,
+     "directLowPrice": 1499.09
+    }
+   }
+  }
+ },
+ "swsh9tg-TG05": {
+  "id": "swsh9tg-TG05",
+  "localId": "TG05",
+  "name": "Zekrom",
+  "pricing": {
+   "cardmarket": {
+    "updated": "2026-11-10T23:49:36.571Z",
+    "unit": "EUR",
+    "idProduct": 608737,
+    "avg": 13.79,
+    "low": 0.99,
+    "trend": 13.97,
+    "avg1": 14,
+    "avg7": 12.61,
+    "avg30": 13.91,
+    "avg-holo": null,
+    "low-holo": null,
+    "trend-holo": 0,
+    "avg1-holo": null,
+    "avg7-holo": null,
+    "avg30-holo": null
+   },
+   "tcgplayer": null
+  }
+ },
+ "ex6-90": {
+  "id": "ex6-90",
+  "localId": "90",
+  "name": "Energy Switch",
+  "pricing": {
+   "cardmarket": {
+    "updated": "2026-11-10T23:49:36.571Z",
+    "unit": "EUR",
+    "idProduct": 276266,
+    "avg": 0.99,
+    "low": 0.02,
+    "trend": 1.22,
+    "avg1": 0.7,
+    "avg7": 0.95,
+    "avg30": 1.24,
+    "avg-holo": 4.99,
+    "low-holo": 0.95,
+    "trend-holo": 9.55,
+    "avg1-holo": 10,
+    "avg7-holo": 8.98,
+    "avg30-holo": 5.78
+   },
+   "tcgplayer": {
+    "unit": "USD",
+    "updated": "2026-11-10T23:49:39.427Z",
+    "normal": {
+     "productId": 85254,
+     "lowPrice": 1.04,
+     "midPrice": 2.12,
+     "highPrice": 19.66,
+     "marketPrice": 2.11,
+     "directLowPrice": null
+    },
+    "reverse-holofoil": {
+     "productId": 85254,
+     "lowPrice": 11.9,
+     "midPrice": 14.4,
+     "highPrice": 180.58,
+     "marketPrice": 12.52,
+     "directLowPrice": null
+    }
+   }
+  }
+ }
+}

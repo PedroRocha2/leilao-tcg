@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from apoio import CSRF, ITERACOES_DE_TESTE
+from apoio import CSRF, ITERACOES_DE_TESTE, catalogo_de_teste
 from app import create_app
 from app.db import conectar
 
@@ -29,6 +29,9 @@ def app(tmp_path):
         "DATABASE": str(tmp_path / "teste.sqlite3"),
         "SECRET_KEY": "chave-de-teste",
         "PBKDF2_ITERACOES": ITERACOES_DE_TESTE,
+        "CATALOGO": catalogo_de_teste(),
+        "PASTA_DE_FOTOS": str(tmp_path / "fotos"),
+        "PASTA_DO_CATALOGO": str(tmp_path / "catalogo"),
     })
 
 

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% import "_icones.html" as icone %}
+{% block descricao %}Área do lojista: aprovações, entregas, saques, usuários, cartas, histórico e finanças da loja.{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Administração</h1>
+  <p class="cabecalho__texto">{{ administrador.nome }}</p>
+</div>
+
+{% set abas = [("leiloes", "Leilões", pendencias.leiloes), ("entregas", "Entregas", pendencias.entregas),
+               ("saques", "Saques", pendencias.saques), ("usuarios", "Usuários", 0), ("cartas", "Cartas", 0),
+               ("historico", "Histórico", 0), ("financeiro", "Financeiro", 0),
+               ("configuracoes", "Configurações", 0), ("auditoria", "Auditoria", 0)] %}
+<div class="conta-abas conta-abas--admin">
+  <nav class="conta-abas__nav" aria-label="Seções da administração">
+    <ul class="conta-abas__lista">
+      {% for chave, rotulo, quantos in abas %}
+      <li><a class="aba" href="{{ url_for('admin.' ~ chave) }}" {% if aba == chave %}aria-current="page"{% endif %}>{{ rotulo }}{% if quantos %}&nbsp;<span class="aba__qtd">({{ quantos }}<span class="vh"> aguardando</span>)</span>{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+  <form class="conta-abas__sair" method="post" action="{{ url_for('contas.sair') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="botao botao--terciario" type="submit">{{ icone.sair() }}Sair</button>
+  </form>
+</div>
+
+<section class="conta-conteudo" aria-labelledby="titulo-secao">
+  {% block secao %}{% endblock %}
+</section>
+{% endblock %}

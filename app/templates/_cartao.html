@@ -1,6 +1,6 @@
 {% macro cartao_leilao(c, nivel=2, prioridade=false) %}
 <li class="cartao">
-  <img class="cartao__foto" src="{{ url_for('static', filename=c.foto) }}" alt="" width="600" height="838"
+  <img class="cartao__foto" src="{{ url_da_foto(c.foto) }}" alt="" width="600" height="838"
        {% if prioridade %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
   <h{{ nivel }} class="cartao__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=c.id) }}">{{ c.nome }}</a></h{{ nivel }}>
   <p class="cartao__ed" translate="no">{{ c.edicao }}</p>

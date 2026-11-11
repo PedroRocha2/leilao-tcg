@@ -1,0 +1,33 @@
+{% extends "admin/_layout.html" %}
+{% import "_icones.html" as icone %}
+{% from "_formulario.html" import campo %}
+{% block titulo %}{{ c.nome }} · Usuários · Administração{% endblock %}
+{% block secao %}
+<p class="voltar"><a href="{{ url_for('admin.usuarios') }}">Todos os usuários</a></p>
+<h2 id="titulo-secao">{{ c.nome }}</h2>
+<div class="admin__duas">
+  <div>
+    <dl class="ficha">
+      <div><dt>CPF</dt><dd>{{ c.cpf|cpf }}</dd></div>
+      <div><dt>Cliente desde</dt><dd>{{ c.dataCadastro|data }}</dd></div>
+      <div><dt>Situação da conta</dt><dd>{{ "Bloqueada para lances e leilões" if c.bloqueado else "Ativa" }}</dd></div>
+      <div><dt>Descumprimentos (arremates não pagos no prazo)</dt><dd>{{ c.descumprimentos }}</dd></div>
+      <div><dt>Saldo da carteira</dt><dd>{{ c.carteira.saldo|reais }}</dd></div>
+    </dl>
+    <form class="admin__bloqueio" method="post" action="{{ url_for('admin.bloqueio', cliente_id=c.id, acao='desbloquear' if c.bloqueado else 'bloquear') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="botao botao--secundario" type="submit">{{ "Desbloquear conta" if c.bloqueado else "Bloquear conta" }}</button>
+      <p class="campo__ajuda">Conta bloqueada não dá lances nem cria leilões.</p>
+    </form>
+  </div>
+
+  <form class="formulario" method="post" action="{{ url_for('admin.usuario', cliente_id=c.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if erros %}<p class="campo__erro" role="alert">{{ icone.alerta() }}<span>Corrija os campos marcados para salvar.</span></p>{% endif %}
+    {{ campo("nome", "Nome completo", dados.nome, erros.get("nome"), extras='maxlength="120"') }}
+    {{ campo("email", "E-mail", dados.email, erros.get("email"), tipo="email", extras='spellcheck="false" autocapitalize="off"') }}
+    {{ campo("telefone", "Telefone", dados.telefone, erros.get("telefone"), tipo="tel", inputmode="tel") }}
+    <button class="botao botao--primario" type="submit">Salvar dados</button>
+  </form>
+</div>
+{% endblock %}

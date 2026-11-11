@@ -1,0 +1,23 @@
+{% extends "admin/_layout.html" %}
+{% import "_icones.html" as icone %}
+{% from "_formulario.html" import campo %}
+{% block titulo %}Configurações · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Configurações da loja</h2>
+<form class="formulario formulario--estreito" method="post" action="{{ url_for('admin.configuracoes') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% if erros %}<p class="campo__erro" role="alert">{{ icone.alerta() }}<span>Corrija os campos marcados para salvar.</span></p>{% endif %}
+  {{ campo("taxa", "Taxa da loja (%)", dados.taxa, erros.get("taxa"), inputmode="decimal",
+           ajuda="Descontada do valor do arremate no repasse ao vendedor.") }}
+  {{ campo("incremento", "Incremento mínimo entre lances (R$)", dados.incremento, erros.get("incremento"),
+           inputmode="decimal") }}
+  {{ campo("prazo_pagamento", "Prazo de pagamento do vencedor (horas)", dados.prazo_pagamento,
+           erros.get("prazo_pagamento"), inputmode="numeric",
+           ajuda="Sem pagamento nesse prazo, o comprador recebe um descumprimento e a carta volta ao vendedor.") }}
+  {{ campo("prazo_reoferta", "Prazo de aceite da reoferta ao segundo colocado (horas)", dados.prazo_reoferta,
+           erros.get("prazo_reoferta"), inputmode="numeric",
+           ajuda="Fica guardado para a reoferta ao segundo colocado, que ainda não está disponível no sistema.") }}
+  <p class="formulario__nota">A taxa e o incremento valem para os leilões criados depois de salvar; os que já existem mantêm os valores com que foram criados. O prazo de pagamento vale para os leilões que encerrarem depois de salvar.</p>
+  <button class="botao botao--primario" type="submit">Salvar configurações</button>
+</form>
+{% endblock %}

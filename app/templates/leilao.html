@@ -3,17 +3,17 @@
 {% from "_cartao.html" import cartao_leilao %}
 {% set carta = leilao.carta %}
 {% block titulo %}{{ carta.nome }}{% endblock %}
-{% block descricao %}{{ carta.nome }}, {{ carta.edicao }}, {{ carta.condicao }}, em leilão. {{ e.rotulo_valor }}: {{ e.valor }}.{% endblock %}
+{% block descricao %}{{ carta.nome }}, {{ carta.edicao }}, {{ carta.condicao }}, {{ "em leilão" if e.aberto else "leilão encerrado" }}. {{ e.rotulo_valor }}: {{ e.valor }}.{% endblock %}
 {% block conteudo %}
 <nav class="trilha" aria-label="Você está em">
   <ol>
     <li><a href="{{ url_for('leiloes.listar') }}">Leilões</a></li>
-    <li><a href="{{ url_for('leiloes.listar', jogo=jogo_slug) }}">{{ carta.jogo.nome }}</a></li>
+    <li><a href="{{ url_for('leiloes.jogo', slug=jogo_slug) }}">{{ carta.jogo.nome }}</a></li>
     <li><span aria-current="page" translate="no">{{ carta.nome }}</span></li>
   </ol>
 </nav>
 
-<article class="leilao" data-leilao data-estado-url="{{ url_for('leiloes.estado_atual', leilao_id=leilao.id) }}">
+<article class="leilao" data-leilao data-aberto="{{ 'true' if e.aberto else 'false' }}" data-estado-url="{{ url_for('leiloes.estado_atual', leilao_id=leilao.id) }}">
   <div class="cabeca">
     <h1 translate="no">{{ carta.nome }}</h1>
     <p class="cabeca__sub"><span translate="no">{{ carta.edicao }}</span> <span aria-hidden="true">·</span> <span translate="no">{{ carta.condicao }}</span></p>
@@ -28,18 +28,18 @@
       {% for url, descricao in fotos %}
       <li>
         <button class="miniatura" type="button" aria-pressed="{{ 'true' if loop.first else 'false' }}" data-indice="{{ loop.index0 }}">
-          <img src="{{ url_for('static', filename=url) }}" alt="Mostrar a foto {{ loop.index }} de {{ fotos|length }}: {{ descricao.rsplit(': ', 1)[-1] }}" width="480" height="670" decoding="async">
+          <img src="{{ url_da_foto(url) }}" alt="Mostrar a foto {{ loop.index }} de {{ fotos|length }}: {{ descricao.rsplit(': ', 1)[-1] }}" width="480" height="670" decoding="async">
         </button>
       </li>
       {% endfor %}
     </ul>
     {% endif %}
-    <a class="galeria__ampliar" href="{{ url_for('static', filename=fotos[0][0]) }}" data-ampliar>
-      <img class="galeria__foto" src="{{ url_for('static', filename=fotos[0][0]) }}" alt="{{ fotos[0][1] }}" width="600" height="838" fetchpriority="high" data-foto-principal>
+    <a class="galeria__ampliar" href="{{ url_da_foto(fotos[0][0]) }}" data-ampliar>
+      <img class="galeria__foto" src="{{ url_da_foto(fotos[0][0]) }}" alt="{{ fotos[0][1] }}" width="600" height="838" fetchpriority="high" data-foto-principal>
       <span class="galeria__lupa">{{ icone.lupa() }}Ampliar</span>
     </a>
     <template data-fotos>
-      {% for url, descricao in fotos %}<span data-url="{{ url_for('static', filename=url) }}" data-descricao="{{ descricao }}"></span>{% endfor %}
+      {% for url, descricao in fotos %}<span data-url="{{ url_da_foto(url) }}" data-descricao="{{ descricao }}"></span>{% endfor %}
     </template>
   </section>
 
@@ -61,6 +61,9 @@
           <span role="timer" data-contagem data-alvo="{{ e.fim_iso }}" data-ao-zerar="recarregar">{{ e.restante }}</span>
           <span class="painel__quando" data-fim-quando>{{ e.fim_quando }}</span>
         </dd>
+        {% elif e.nao_iniciado %}
+        <dt>Início previsto</dt>
+        <dd>{{ e.inicio_data_hora }}</dd>
         {% else %}
         <dt>Fim do prazo</dt>
         <dd>{{ e.fim_data_hora }}</dd>
@@ -74,7 +77,14 @@
 
     {% if not e.aberto %}
     <div class="lance">
-      <p class="lance__aviso">{{ icone.info() }}<span>Este leilão não recebe mais lances.</span></p>
+      <p class="lance__aviso">{{ icone.ok() if e.voce_arrematou else icone.info() }}<span>{{ e.aviso }}</span></p>
+      {% if e.voce_arrematou %}
+      <p class="lance__ajuda"><a href="{{ url_for('minha_conta.arremates') }}">Ver meus arremates</a></p>
+      {% endif %}
+    </div>
+    {% elif administrador %}
+    <div class="lance">
+      <p class="lance__aviso">{{ icone.info() }}<span>Você entrou como administrador da loja. O administrador acompanha os leilões, mas não dá lances.</span></p>
     </div>
     {% elif not cliente %}
     <div class="lance lance--visitante">
@@ -153,7 +163,7 @@
 <section class="outros" aria-labelledby="titulo-outros">
   <div class="outros__cabeca">
     <h2 id="titulo-outros">Outros leilões de {{ carta.jogo.nome }}</h2>
-    <a class="outros__todos" href="{{ url_for('leiloes.listar', jogo=jogo_slug) }}">Ver todos<span class="vh"> os leilões de {{ carta.jogo.nome }}</span></a>
+    <a class="outros__todos" href="{{ url_for('leiloes.jogo', slug=jogo_slug) }}">Ver todos<span class="vh"> os leilões de {{ carta.jogo.nome }}</span></a>
   </div>
   <ul class="grade grade--outros">
     {% for c in outros %}{{ cartao_leilao(c, nivel=3) }}{% endfor %}
@@ -167,7 +177,7 @@
     <button class="botao-icone" type="button" aria-label="Fechar" data-fechar>{{ icone.fechar() }}</button>
   </div>
   <div class="ampliacao__corpo">
-    <img src="{{ url_for('static', filename=fotos[0][0]) }}" alt="{{ fotos[0][1] }}" width="600" height="838" data-ampliacao-foto>
+    <img src="{{ url_da_foto(fotos[0][0]) }}" alt="{{ fotos[0][1] }}" width="600" height="838" data-ampliacao-foto>
   </div>
   {% if fotos|length > 1 %}
   <div class="ampliacao__nav">

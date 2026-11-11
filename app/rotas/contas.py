@@ -5,7 +5,9 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from app.apresentacao import FUSO_DA_LOJA
 from app.cadastro import CadastroInvalido, criar_conta as cadastrar, normalizar_email
 from app.dominio import senhas
-from app.rotas.comum import agora, cliente_atual, destino_seguro, iniciar_sessao, repositorios
+from app.dominio.contas import Administrador
+from app.rotas.comum import (administrador_atual, agora, destino_seguro, iniciar_sessao, registrar_operacao,
+                             repositorios, usuario_atual)
 
 bp = Blueprint("contas", __name__)
 
@@ -16,8 +18,10 @@ def _hash_de_comparacao(iteracoes: int) -> str:
 
 
 def _ja_logado():
+    if administrador_atual() is not None:
+        return redirect(url_for("admin.leiloes"))
     destino = destino_seguro(request.args.get("proximo"), url_for("minha_conta.perfil"))
-    return redirect(destino) if cliente_atual() else None
+    return redirect(destino) if usuario_atual() else None
 
 
 @bp.route("/criar-conta", methods=["GET", "POST"])
@@ -41,6 +45,7 @@ def criar_conta():
             erros = invalido.erros
         else:
             iniciar_sessao(novo)
+            registrar_operacao("cadastro de cliente")
             flash("Conta criada. Você já pode dar lances.", "sucesso")
             return redirect(destino_seguro(proximo, url_for("minha_conta.perfil")), code=303)
 
@@ -53,25 +58,30 @@ def entrar():
     if (redirecionar := _ja_logado()) is not None:
         return redirecionar
     proximo = request.values.get("proximo", "")
-    email = normalizar_email(request.form.get("email"))
+    login = normalizar_email(request.form.get("email"))
     erro = None
 
     if request.method == "POST":
         senha = request.form.get("senha", "")
         clientes, _ = repositorios()
-        cliente = clientes.por_email(email) if email else None
-        if cliente is not None and cliente.autenticar(senha):
-            iniciar_sessao(cliente)
+        usuario = clientes.usuario_por_login(login) if login else None
+        if usuario is not None and usuario.autenticar(senha):
+            iniciar_sessao(usuario)
+            registrar_operacao("login")
+            if isinstance(usuario, Administrador):
+                return redirect(url_for("admin.leiloes"), code=303)
             return redirect(destino_seguro(proximo, url_for("leiloes.listar")), code=303)
-        if cliente is None:
+        if usuario is None:
             senhas.conferir(senha, _hash_de_comparacao(current_app.config["PBKDF2_ITERACOES"]))
         erro = "E-mail ou senha incorretos. Confira os dois e tente de novo."
 
-    return render_template("contas/entrar.html", email=email, erro=erro, proximo=proximo), (401 if erro else 200)
+    return render_template("contas/entrar.html", email=login, erro=erro, proximo=proximo), (401 if erro else 200)
 
 
 @bp.post("/sair")
 def sair():
+    if usuario_atual() is not None:
+        registrar_operacao("logout")
     session.clear()
     flash("Você saiu da sua conta.", "info")
     return redirect(url_for("leiloes.listar"), code=303)

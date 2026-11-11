@@ -1,0 +1,76 @@
+{
+ "data": {
+  "sets": [
+   {
+    "id": "base1",
+    "releaseDate": "1999-01-09",
+    "serie": {
+     "id": "base"
+    },
+    "cardCount": {
+     "official": 102
+    }
+   },
+   {
+    "id": "ex6",
+    "releaseDate": "2004-09-01",
+    "serie": {
+     "id": "ex"
+    },
+    "cardCount": {
+     "official": 112
+    }
+   },
+   {
+    "id": "hgss4",
+    "releaseDate": "2010-11-03",
+    "serie": {
+     "id": "hgss"
+    },
+    "cardCount": {
+     "official": 102
+    }
+   },
+   {
+    "id": "sv01",
+    "releaseDate": "2023-03-31",
+    "serie": {
+     "id": "sv"
+    },
+    "cardCount": {
+     "official": 198
+    }
+   },
+   {
+    "id": "B2a",
+    "releaseDate": "2026-02-26",
+    "serie": {
+     "id": "tcgp"
+    },
+    "cardCount": {
+     "official": 93
+    }
+   },
+   {
+    "id": "30th",
+    "releaseDate": "2026-09-16",
+    "serie": {
+     "id": "me"
+    },
+    "cardCount": {
+     "official": 128
+    }
+   },
+   {
+    "id": "me06",
+    "releaseDate": "2026-11-06",
+    "serie": {
+     "id": "me"
+    },
+    "cardCount": {
+     "official": 103
+    }
+   }
+  ]
+ }
+}

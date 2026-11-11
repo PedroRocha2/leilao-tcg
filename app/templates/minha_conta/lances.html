@@ -4,7 +4,7 @@
 <ul class="meus-lances">
   {% for item in itens %}
   <li class="meu-lance">
-    <img class="meu-lance__foto" src="{{ url_for('static', filename=item.foto) }}" alt="" width="600" height="838" loading="lazy" decoding="async">
+    <img class="meu-lance__foto" src="{{ url_da_foto(item.foto) }}" alt="" width="600" height="838" loading="lazy" decoding="async">
     <div class="meu-lance__carta">
       <h4 class="meu-lance__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=item.id) }}">{{ item.nome }}</a></h4>
       <p class="meu-lance__ed" translate="no">{{ item.edicao }}</p>

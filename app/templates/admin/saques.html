@@ -1,0 +1,51 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Saques · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Saques solicitados</h2>
+<p class="admin__nota">Faça o Pix para a chave informada e registre a transferência, ou recuse o saque: o valor bloqueado volta ao saldo do cliente.</p>
+{% if solicitados %}
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Saques aguardando resposta, do mais antigo para o mais recente</caption>
+  <thead><tr><th scope="col">Cliente</th><th scope="col" class="direita">Valor</th><th scope="col">Chave Pix</th><th scope="col">Solicitado em</th><th scope="col">Resposta</th></tr></thead>
+  <tbody>
+    {% for saque, cliente in solicitados %}
+    <tr>
+      <td><a href="{{ url_for('admin.usuario', cliente_id=cliente.id) }}">{{ cliente.nome }}</a></td>
+      <td class="direita">{{ saque.valor|reais }}</td>
+      <td translate="no">{{ saque.chavePix }}</td>
+      <td>{{ saque.dataSolicitacao|data_hora }}</td>
+      <td class="acoes">
+        <form method="post" action="{{ url_for('admin.responder_saque', saque_id=saque.id, acao='pagar') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="botao botao--primario botao--menor" type="submit">Registrar transferência<span class="vh"> do saque de {{ cliente.nome }}</span></button>
+        </form>
+        <form method="post" action="{{ url_for('admin.responder_saque', saque_id=saque.id, acao='recusar') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="botao botao--secundario botao--menor" type="submit">Recusar<span class="vh"> o saque de {{ cliente.nome }}</span></button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="vazio vazio--compacto"><p class="vazio__titulo">Nenhum saque aguardando resposta.</p></div>
+{% endif %}
+
+{% if respondidos %}
+<h3 class="subtitulo">Saques respondidos</h3>
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Saques pagos ou recusados, do mais recente para o mais antigo</caption>
+  <thead><tr><th scope="col">Cliente</th><th scope="col" class="direita">Valor</th><th scope="col">Chave Pix</th><th scope="col">Situação</th><th scope="col">Respondido em</th></tr></thead>
+  <tbody>
+    {% for saque, cliente in respondidos %}
+    <tr><td>{{ cliente.nome }}</td><td class="direita">{{ saque.valor|reais }}</td><td translate="no">{{ saque.chavePix }}</td><td>{{ saque.status|capitalize }}</td><td>{{ saque.dataResposta|data_hora }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

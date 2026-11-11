@@ -1,0 +1,88 @@
+{
+ "base1-4": {
+  "id": "base1-4",
+  "localId": "4",
+  "name": "Charizard",
+  "image": "https://assets.tcgdex.net/en/base/base1/4",
+  "rarity": "Rare",
+  "hp": 120,
+  "types": [
+   "Fire"
+  ],
+  "category": "Pokemon",
+  "stage": "Stage2",
+  "trainerType": null,
+  "energyType": null,
+  "illustrator": "Mitsuhiro Arita",
+  "set": {
+   "name": "Base Set",
+   "cardCount": {
+    "official": 102
+   }
+  }
+ },
+ "hgss4-4": {
+  "id": "hgss4-4",
+  "localId": "4",
+  "name": "Drapion",
+  "image": "https://assets.tcgdex.net/en/hgss/hgss4/4",
+  "rarity": "Holo Rare",
+  "hp": 100,
+  "types": [
+   "Darkness"
+  ],
+  "category": "Pokemon",
+  "stage": "Stage1",
+  "trainerType": null,
+  "energyType": null,
+  "illustrator": "Sumiyoshi Kizuki",
+  "set": {
+   "name": "Triumphant",
+   "cardCount": {
+    "official": 102
+   }
+  }
+ },
+ "ex6-90": {
+  "id": "ex6-90",
+  "localId": "90",
+  "name": "Energy Switch",
+  "image": "https://assets.tcgdex.net/en/ex/ex6/90",
+  "rarity": "Uncommon",
+  "hp": null,
+  "types": null,
+  "category": "Trainer",
+  "stage": null,
+  "trainerType": "Item",
+  "energyType": null,
+  "illustrator": "Ken Ikuji",
+  "set": {
+   "name": "FireRed & LeafGreen",
+   "cardCount": {
+    "official": 112
+   }
+  }
+ },
+ "sv01-004": {
+  "id": "sv01-004",
+  "localId": "004",
+  "name": "Breloom",
+  "image": "https://assets.tcgdex.net/en/sv/sv01/004",
+  "rarity": "Uncommon",
+  "hp": 110,
+  "types": [
+   "Grass"
+  ],
+  "category": "Pokemon",
+  "stage": "Stage1",
+  "trainerType": null,
+  "energyType": null,
+  "illustrator": "Ryuta Fuse",
+  "set": {
+   "name": "Scarlet & Violet",
+   "cardCount": {
+    "official": 198
+   }
+  }
+ }
+}

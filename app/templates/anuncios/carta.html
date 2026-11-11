@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% import "_icones.html" as icone %}
+{% from "_formulario.html" import campo %}
+{% block titulo %}Criar leilão de {{ carta.nome }}{% endblock %}
+{% block descricao %}Informe a condição, o lance mínimo inicial e o período do leilão de {{ carta.nome }}.{% endblock %}
+{% block conteudo %}
+{% set rotulos = {"foto": "Foto", "edicao": "Edição", "condicao": "Condição", "descricao": "Descrição",
+                  "lance_inicial": "Lance mínimo inicial", "inicio": "Início", "fim": "Fim previsto"} %}
+{% set primeiro_erro = (rotulos.keys()|select("in", erros)|first) if erros else None %}
+{% macro erro_de(nome) %}{% if erros.get(nome) %}<p class="campo__erro" id="erro-{{ nome }}">{{ icone.alerta() }}<span>{{ erros[nome] }}</span></p>{% endif %}{% endmacro %}
+<nav class="trilha" aria-label="Você está em">
+  <ol>
+    <li><a href="{{ url_for('anuncios.meus_leiloes') }}">Vender</a></li>
+    <li><a href="{{ url_for('anuncios.novo', jogo=jogo.slug) }}">Criar leilão</a></li>
+    <li><span aria-current="page" translate="no">{{ carta.nome }}</span></li>
+  </ol>
+</nav>
+
+<div class="anuncio">
+  <div class="cabeca">
+    <h1 translate="no">{{ carta.nome }}</h1>
+    <p class="cabeca__sub">{{ jogo.nome }} <span aria-hidden="true">·</span> código <span translate="no">{{ carta.codigo }}</span></p>
+  </div>
+
+  <section class="anuncio__carta" aria-labelledby="titulo-catalogo">
+    <h2 id="titulo-catalogo" class="vh">Dados do catálogo</h2>
+    <img class="anuncio__foto" src="{{ url_for('anuncios.miniatura', jogo=jogo.slug, carta=carta.id) }}" alt="{{ carta.nome }}: imagem do catálogo" width="600" height="838" fetchpriority="high">
+    <div class="preco-medio">
+      <p class="preco-medio__rotulo">Valor médio de mercado</p>
+      {% if preco %}
+      <p class="preco-medio__valor" translate="no">{{ preco.valor }}</p>
+      <p class="preco-medio__nota">Preço de venda no {{ preco.fonte }}, em {{ preco.moeda }}. É uma referência para o seu lance mínimo inicial, que é em reais.</p>
+      {% else %}
+      <p class="preco-medio__nota">O catálogo não tem o preço desta carta no momento.</p>
+      {% endif %}
+    </div>
+    <dl class="ficha">
+      <div><dt>Código</dt><dd translate="no">{{ carta.codigo }}</dd></div>
+      {% if carta.edicoes|length == 1 %}<div><dt>Edição</dt><dd translate="no">{{ carta.edicoes[0] }}</dd></div>{% endif %}
+      {% for rotulo, valor in carta.especificacoes %}<div><dt>{{ rotulo }}</dt><dd translate="no">{{ valor }}</dd></div>{% endfor %}
+    </dl>
+    {% if carta.texto %}<p class="anuncio__texto" translate="no">{{ carta.texto }}</p>{% endif %}
+    <p><a href="{{ url_for('anuncios.novo', jogo=jogo.slug) }}">Escolher outra carta</a></p>
+  </section>
+
+  <section class="anuncio__form" aria-labelledby="titulo-form">
+    <h2 id="titulo-form" class="vh">Dados do leilão</h2>
+    {% if erros %}
+    <div class="resumo-erros" role="alert">
+      <p>{{ icone.alerta() }}<span>Corrija {{ "o item abaixo" if erros|length == 1 else "os " ~ erros|length ~ " itens abaixo" }} para criar o leilão.</span></p>
+      <ul>
+        {% for nome in rotulos if nome in erros %}<li>{% if nome == "foto" %}{{ erros[nome] }}{% else %}<a href="#{{ nome }}">{{ rotulos[nome] }}: {{ erros[nome] }}</a>{% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form class="formulario" method="post" action="{{ url_for('anuncios.novo') }}" data-avisar-ao-sair>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="jogo" value="{{ jogo.slug }}">
+      <input type="hidden" name="carta" value="{{ carta.id }}">
+
+      {% if carta.edicoes|length > 1 %}
+      <div class="campo{% if erros.get('edicao') %} campo--erro{% endif %}">
+        <label for="edicao">{{ rotulos.edicao }}</label>
+        <select id="edicao" name="edicao" required translate="no" aria-describedby="ajuda-edicao{% if erros.get('edicao') %} erro-edicao{% endif %}"
+                {% if erros.get('edicao') %}aria-invalid="true"{% endif %}{% if primeiro_erro == "edicao" %} autofocus{% endif %}>
+          <option value="">Escolha…</option>
+          {% for edicao in carta.edicoes %}<option value="{{ edicao }}"{% if edicao == dados.edicao %} selected{% endif %}>{{ edicao }}</option>{% endfor %}
+        </select>
+        <p class="campo__ajuda" id="ajuda-edicao">O código da edição fica impresso abaixo da ilustração da carta.</p>
+        {{ erro_de("edicao") }}
+      </div>
+      {% endif %}
+
+      <div class="campo{% if erros.get('condicao') %} campo--erro{% endif %}">
+        <label for="condicao">{{ rotulos.condicao }}</label>
+        <select id="condicao" name="condicao" required {% if erros.get('condicao') %}aria-invalid="true" aria-describedby="erro-condicao"{% endif %}
+                {% if primeiro_erro == "condicao" %}autofocus{% endif %}>
+          <option value="">Escolha…</option>
+          {% for condicao in condicoes %}<option value="{{ condicao }}"{% if condicao == dados.condicao %} selected{% endif %}>{{ condicao }}</option>{% endfor %}
+        </select>
+        {{ erro_de("condicao") }}
+      </div>
+
+      <div class="campo{% if erros.get('descricao') %} campo--erro{% endif %}">
+        <label for="descricao">{{ rotulos.descricao }}</label>
+        <textarea id="descricao" name="descricao" rows="5" maxlength="{{ tamanho_da_descricao }}" required
+                  aria-describedby="ajuda-descricao{% if erros.get('descricao') %} erro-descricao{% endif %}"
+                  {% if erros.get('descricao') %}aria-invalid="true"{% endif %}{% if primeiro_erro == "descricao" %} autofocus{% endif %}>{{ dados.descricao }}</textarea>
+        <p class="campo__ajuda" id="ajuda-descricao">As especificações do catálogo já estão aí. Acrescente o estado da sua carta: riscos, bordas, centralização.</p>
+        {{ erro_de("descricao") }}
+      </div>
+
+      {{ campo("lance_inicial", rotulos.lance_inicial ~ " (R$)", dados.lance_inicial, erros.get("lance_inicial"),
+               inputmode="decimal", placeholder="50,00…", foco=primeiro_erro == "lance_inicial",
+               ajuda="O incremento mínimo entre lances é " ~ incremento ~ ", definido pela loja.",
+               extras='spellcheck="false"') }}
+      <div class="formulario__par">
+        {{ campo("inicio", rotulos.inicio, dados.inicio, erros.get("inicio"), tipo="datetime-local",
+                 foco=primeiro_erro == "inicio") }}
+        {{ campo("fim", rotulos.fim, dados.fim, erros.get("fim"), tipo="datetime-local",
+                 foco=primeiro_erro == "fim") }}
+      </div>
+
+      <p class="formulario__nota">O leilão só começa a receber lances depois que você leva a carta à loja e ela é conferida e aprovada. Se a aprovação sair depois do início marcado, ele começa na hora da aprovação. Você não pode dar lances no próprio leilão.</p>
+      <button class="botao botao--primario botao--largo" type="submit">Criar leilão</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

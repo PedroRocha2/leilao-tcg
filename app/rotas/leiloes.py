@@ -1,35 +1,70 @@
-from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
+from pathlib import Path
 
-from app.apresentacao import cartao, descricao_da_foto, estado, ficha, slug
+from flask import (Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request,
+                   send_from_directory, url_for)
+
+from app.apresentacao import cartao, descricao_da_foto, estado, ficha, slug as slug_de
 from app.db import transacao
 from app.dominio.dinheiro import ValorMonetarioInvalido, formatar_reais, ler_reais
-from app.dominio.leiloes import LanceRecusado
-from app.rotas.comum import agora, cliente_atual, quer_json, repositorios
+from app.dominio.leiloes import LanceRecusado, StatusLeilao
+from app.rotas.comum import (administrador_atual, agora, cliente_atual, jogos_da_loja, quer_json,
+                             registrar_operacao, repositorios, texto_da_busca)
 
 bp = Blueprint("leiloes", __name__)
+
+# O painel de filtros de cada jogo: slug do jogo -> template incluído na página dele (jogo.html).
+# Ainda não há nenhum; para dar filtros a um jogo, crie o template e registre aqui.
+FILTROS_POR_JOGO: dict[str, str] = {}
+PASTA_DAS_CAPAS = "img/jogos"
 
 
 @bp.get("/")
 def inicio():
-    return redirect(url_for("leiloes.listar"))
+    """A página inicial: a apresentação da loja, os jogos e, abaixo, todos os leilões ativos."""
+    _, repositorio = repositorios()
+    momento = agora()
+    ids = {jogo.nome: jogo.id for jogo in repositorio.jogos()}
+    por_jogo = repositorio.ativos_por_jogo(momento)
+    jogos = [{"slug": s, "nome": nome, "total": por_jogo.get(ids.get(nome), 0), "capa": _capa(s)}
+             for s, nome in jogos_da_loja().items()]
+    return render_template("inicio.html", jogos=jogos,
+                           cartoes=[cartao(leilao, momento) for leilao in repositorio.ativos(momento)])
+
+
+def _capa(slug_do_jogo: str) -> str | None:
+    """A imagem do jogo na página inicial, quando existe uma em static/img/jogos."""
+    arquivo = f"{PASTA_DAS_CAPAS}/{slug_do_jogo}.webp"
+    return arquivo if (Path(current_app.static_folder) / arquivo).is_file() else None
 
 
 @bp.get("/leiloes")
 def listar():
+    """Os leilões ativos de todos os jogos, ou os que a busca do topo acha pelo nome ou pelo código."""
+    filtro, texto = request.args.get("jogo"), texto_da_busca()
+    if filtro:
+        # O jogo escolhido no combobox leva para a página dele, com a mesma busca.
+        if filtro not in jogos_da_loja():
+            return redirect(url_for(".listar"))
+        return redirect(url_for(".jogo", slug=filtro, q=texto or None))
     _, repositorio = repositorios()
     momento = agora()
-    jogos = repositorio.jogos()
-    filtro = request.args.get("jogo")
-    jogo = next((j for j in jogos if slug(j.nome) == filtro), None) if filtro else None
-    if filtro and jogo is None:
-        return redirect(url_for("leiloes.listar"))
+    leiloes = repositorio.ativos(momento, texto=texto)
+    return render_template("leiloes.html", cartoes=[cartao(leilao, momento) for leilao in leiloes], q=texto)
 
-    por_jogo = repositorio.ativos_por_jogo(momento)
-    chips = [{"nome": j.nome, "slug": slug(j.nome), "total": por_jogo.get(j.id, 0),
-              "atual": jogo is not None and j.id == jogo.id} for j in jogos]
-    leiloes = repositorio.ativos(momento, jogo.id if jogo else None)
-    return render_template("leiloes.html", cartoes=[cartao(l, momento) for l in leiloes],
-                           chips=chips, jogo=jogo, total_geral=sum(por_jogo.values()))
+
+@bp.get("/jogos/<slug>")
+def jogo(slug: str):
+    """A página de um jogo: os leilões ativos dele e o espaço dos filtros próprios do jogo."""
+    nome = jogos_da_loja().get(slug)
+    if nome is None:
+        abort(404)
+    _, repositorio = repositorios()
+    momento, texto = agora(), texto_da_busca()
+    cadastrado = next((jogo for jogo in repositorio.jogos() if jogo.nome == nome), None)
+    leiloes = repositorio.ativos(momento, cadastrado.id, texto) if cadastrado else []
+    return render_template("jogo.html", jogo={"slug": slug, "nome": nome}, q=texto,
+                           cartoes=[cartao(leilao, momento) for leilao in leiloes],
+                           filtros=FILTROS_POR_JOGO.get(slug))
 
 
 def _carregar(leilao_id: int):
@@ -37,7 +72,17 @@ def _carregar(leilao_id: int):
     leilao = repositorio.por_id(leilao_id)
     if leilao is None:
         abort(404)
+    # Enquanto a loja não confere a carta e aprova, só o vendedor e o administrador veem o leilão.
+    cliente = cliente_atual()
+    autorizado = administrador_atual() or (cliente and leilao.carta.vendedor.ehOMesmo(cliente))
+    if leilao.status == StatusLeilao.PENDENTE and not autorizado:
+        abort(404)
     return leilao, repositorio
+
+
+@bp.get("/fotos/<arquivo>")
+def foto(arquivo: str):
+    return send_from_directory(current_app.config["PASTA_DE_FOTOS"], arquivo, max_age=604800)
 
 
 def _pagina(leilao, repositorio, momento, status=200, erro=None, valor_digitado=None):
@@ -50,7 +95,7 @@ def _pagina(leilao, repositorio, momento, status=200, erro=None, valor_digitado=
         fotos=fotos,
         ficha=ficha(leilao, momento),
         outros=[cartao(outro, momento) for outro in repositorio.outros_do_jogo(leilao, momento)],
-        jogo_slug=slug(leilao.carta.jogo.nome),
+        jogo_slug=slug_de(leilao.carta.jogo.nome),
         erro=erro,
         valor_digitado=valor_digitado,
     ), status
@@ -111,6 +156,7 @@ def dar_lance(leilao_id: int):
     except LanceRecusado as recusa:
         return _recusar(leilao_id, recusa.mensagem, texto, recusa.motivo)
 
+    registrar_operacao("lance", lance.valor, f"leilão {leilao_id}: {leilao.carta.nome}")
     mensagem = f"Lance de {formatar_reais(lance.valor)} registrado. Você está liderando."
     if quer_json():
         return jsonify(ok=True, mensagem=mensagem, **_json(leilao, momento)), 201

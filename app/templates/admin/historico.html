@@ -1,0 +1,34 @@
+{% extends "admin/_layout.html" %}
+{% block titulo %}Histórico · Administração{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Histórico de leilões finalizados</h2>
+{% if linhas %}
+<div class="rolagem">
+<table class="tabela tabela--larga">
+  <caption class="vh">Leilões encerrados ou cancelados, do mais recente para o mais antigo</caption>
+  <thead><tr><th scope="col">Leilão</th><th scope="col">Item</th><th scope="col">Vendedor</th><th scope="col">Vencedor</th><th scope="col" class="direita">Valor final</th><th scope="col" class="direita">Taxa</th><th scope="col">Pagamento</th><th scope="col">Entrega</th><th scope="col">Desfecho</th></tr></thead>
+  <tbody>
+    {% for leilao, desfecho in linhas %}
+    {% set arremate = leilao.transacao %}
+    <tr>
+      <td>{{ leilao.id }}</td>
+      <td translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=leilao.id) }}">{{ leilao.carta.nome }}</a></td>
+      <td>{{ leilao.carta.vendedor.nome }}</td>
+      <td>{{ arremate.comprador.nome if arremate else "—" }}</td>
+      <td class="direita">{{ arremate.valor|reais if arremate else "—" }}</td>
+      <td class="direita">{{ arremate.taxa|reais if arremate else "—" }}</td>
+      <td>{{ arremate.dataPagamento|data_hora if arremate and arremate.dataPagamento else "—" }}</td>
+      <td>{{ arremate.dataEntrega|data_hora if arremate and arremate.dataEntrega else "—" }}</td>
+      <td>{{ desfecho }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="vazio vazio--compacto">
+  <p class="vazio__titulo">Nenhum leilão finalizado ainda.</p>
+  <p>Os leilões entram aqui quando o prazo termina ou quando são recusados.</p>
+</div>
+{% endif %}
+{% endblock %}

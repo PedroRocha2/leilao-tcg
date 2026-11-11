@@ -206,6 +206,7 @@
     var campo = form && form.elements.valor;
     var valorConhecido = Number(painel.querySelector("[data-valor]").dataset.centavos);
     var minimoNoCampo = campo ? campo.value : null;
+    var aberto = leilao.dataset.aberto === "true";
 
     function anunciar(texto) {
       anuncio.textContent = "";
@@ -328,7 +329,8 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (dados) {
           if (!dados || !dados.estado) return;
-          if (!dados.estado.aberto && form) { window.location.reload(); return; }
+          // O leilão começou ou terminou: o painel muda inteiro, então a página é recarregada.
+          if (dados.estado.aberto !== aberto) { window.location.reload(); return; }
           aplicar(dados);
           if (dados.estado.valor_centavos !== valorConhecido) {
             valorConhecido = dados.estado.valor_centavos;
@@ -338,6 +340,61 @@
         })
         .catch(function () {});
     }, 5000);
+  }
+
+  // Criar leilão: o filtro troca as cartas enquanto o vendedor digita. Sem JavaScript, o formulário recarrega a página.
+  function iniciarFiltroDeCartas() {
+    var form = document.querySelector("[data-filtro-cartas]");
+    var resultados = document.querySelector("[data-resultados]");
+    if (!form || !resultados || typeof DOMParser !== "function" || typeof AbortController !== "function") return;
+    var campo = form.elements.q;
+    var status = form.querySelector("[data-filtro-status]");
+    var minimo = campo.minLength > 0 ? campo.minLength : 1;
+    var pedido = campo.value.trim();
+    var espera = null;
+    var controle = null;
+
+    function filtrar() {
+      window.clearTimeout(espera);
+      var texto = campo.value.trim().replace(/\s+/g, " ");
+      if (texto === pedido || (texto && texto.length < minimo)) return;
+      pedido = texto;
+      var url = new URL(form.action, window.location.href);
+      url.searchParams.set("jogo", form.elements.jogo.value);
+      if (texto) url.searchParams.set("q", texto);
+      if (controle) controle.abort();
+      var meu = controle = new AbortController();
+      resultados.setAttribute("aria-busy", "true");
+
+      fetch(url, { headers: { Accept: "text/html" }, credentials: "same-origin", signal: meu.signal })
+        .then(function (resposta) { return resposta.text(); })
+        .then(function (html) {
+          var novos = new DOMParser().parseFromString(html, "text/html").querySelector("[data-resultados]");
+          // Sem a região de resultados a resposta é outra página (a sessão expirou): o navegador vai até ela.
+          if (!novos) { window.location.assign(url); return; }
+          resultados.innerHTML = novos.innerHTML;
+          history.replaceState(null, "", url);
+          var resumo = resultados.querySelector("[data-resumo]");
+          if (status && resumo) status.textContent = resumo.textContent.trim();
+        })
+        .catch(function (erro) {
+          if (erro.name !== "AbortError") window.location.assign(url);
+        })
+        .finally(function () {
+          if (controle !== meu) return;
+          controle = null;
+          resultados.removeAttribute("aria-busy");
+        });
+    }
+
+    campo.addEventListener("input", function () {
+      window.clearTimeout(espera);
+      espera = window.setTimeout(filtrar, 350);
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      filtrar();
+    });
   }
 
   function iniciarAvisoAoSair() {
@@ -354,6 +411,7 @@
   }
 
   iniciarMenu();
+  iniciarFiltroDeCartas();
   iniciarAvisoAoSair();
   iniciarContagens();
   iniciarAbas();

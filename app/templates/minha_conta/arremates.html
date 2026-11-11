@@ -1,0 +1,41 @@
+{% extends "minha_conta/_layout.html" %}
+{% block titulo %}Arremates · Minha Conta{% endblock %}
+{% block secao %}
+<h2 id="titulo-secao">Arremates</h2>
+{% if itens %}
+<ul class="meus-lances">
+  {% for item in itens %}
+  <li class="meu-lance">
+    <img class="meu-lance__foto" src="{{ url_da_foto(item.foto) }}" alt="" width="600" height="838" loading="lazy" decoding="async">
+    <div class="meu-lance__carta">
+      <h3 class="meu-lance__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=item.id) }}">{{ item.nome }}</a></h3>
+      <p class="meu-lance__ed" translate="no">{{ item.edicao }}</p>
+    </div>
+    <dl class="meu-lance__numeros meu-lance__numeros--arremate">
+      <div><dt>Valor do arremate</dt><dd>{{ item.valor }}</dd></div>
+      <div><dt>Arrematado em</dt><dd>{{ item.quando }}</dd></div>
+      <div><dt>Situação</dt><dd>{{ item.situacao }}</dd></div>
+    </dl>
+    {% if item.pode_pagar or item.codigo or item.entregue_em %}
+    <div class="meu-lance__rodape">
+      {% if item.pode_pagar %}
+      <p>Pague até {{ item.prazo }} para não perder a carta.</p>
+      <a class="botao botao--primario botao--menor" href="{{ url_for('minha_conta.pagar', leilao_id=item.id) }}">Pagar<span class="vh"> {{ item.nome }}</span></a>
+      {% endif %}
+      {% if item.codigo %}
+      <p>Código de retirada: <strong class="codigo" translate="no">{{ item.codigo }}</strong>{% if not item.pode_pagar %}. Apresente na loja para retirar a carta.{% endif %}</p>
+      {% endif %}
+      {% if item.entregue_em %}<p>Carta retirada em {{ item.entregue_em }}.</p>{% endif %}
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="vazio vazio--compacto">
+  <p class="vazio__titulo">Você ainda não arrematou nenhuma carta.</p>
+  <p>Quando um leilão termina com o seu lance como o maior, a carta aparece aqui com o valor do arremate.</p>
+  <p><a class="botao botao--primario" href="{{ url_for('leiloes.listar') }}">Ver leilões ativos</a></p>
+</div>
+{% endif %}
+{% endblock %}

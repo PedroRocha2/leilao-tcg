@@ -1,3 +1,4 @@
+import shutil
 import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -7,7 +8,7 @@ import click
 from flask import current_app, g
 
 SCHEMA = Path(__file__).with_name("schema.sql")
-VERSAO_DO_ESQUEMA = 2
+VERSAO_DO_ESQUEMA = 4
 
 
 def agora_utc() -> datetime:
@@ -67,7 +68,9 @@ def _versao(caminho: Path) -> int:
         conexao.close()
 
 
-def preparar_banco(caminho: str, recriar: bool = False, agora: datetime | None = None) -> None:
+def preparar_banco(caminho: str, recriar: bool = False, agora: datetime | None = None,
+                   administrador: dict | None = None) -> None:
+    """Cria o banco com a carga inicial. `administrador` traz login, senha e iteracoes da conta do lojista."""
     from app.carga_inicial import popular
 
     arquivo = Path(caminho)
@@ -80,16 +83,23 @@ def preparar_banco(caminho: str, recriar: bool = False, agora: datetime | None =
     try:
         conexao.executescript(SCHEMA.read_text(encoding="utf-8"))
         with transacao(conexao):
-            popular(conexao, agora or agora_utc())
+            popular(conexao, agora or agora_utc(), administrador)
             conexao.execute(f"PRAGMA user_version = {VERSAO_DO_ESQUEMA}")
     finally:
         conexao.close()
 
 
+def administrador_da_configuracao() -> dict:
+    configuracao = current_app.config
+    return {"login": configuracao["ADMIN_LOGIN"], "senha": configuracao["ADMIN_SENHA"],
+            "iteracoes": configuracao["PBKDF2_ITERACOES"]}
+
+
 @click.command("reiniciar-dados")
 def comando_reiniciar_dados() -> None:
-    preparar_banco(current_app.config["DATABASE"], recriar=True)
-    click.echo("Banco recriado: leilões com prazos contados a partir de agora e nenhuma conta de usuário.")
+    preparar_banco(current_app.config["DATABASE"], recriar=True, administrador=administrador_da_configuracao())
+    shutil.rmtree(current_app.config["PASTA_DE_FOTOS"], ignore_errors=True)
+    click.echo("Banco recriado: leilões com prazos contados a partir de agora e nenhuma conta de cliente.")
 
 
 def registrar(app) -> None:

@@ -7,6 +7,7 @@ import pytest
 from apoio import CSRF, criar_conta, lance_json, leilao_id
 from app.db import agora_utc, conectar, para_texto
 from app.carga_inicial import CLIENTES
+from app.rotas.leiloes import FILTROS_POR_JOGO
 
 
 @pytest.fixture
@@ -41,15 +42,117 @@ def test_lista_nao_mostra_leilao_encerrado_nem_fora_do_status_ativo(cliente_http
     assert ">Kuriboh<" not in pagina and ">Mewtwo<" not in pagina
 
 
-def test_chips_filtram_por_jogo(cliente_http):
-    pagina = cliente_http.get("/leiloes?jogo=yu-gi-oh").get_data(as_text=True)
-    assert pagina.count('class="cartao"') == 5
+def test_pagina_do_jogo_lista_so_os_leiloes_ativos_dele(cliente_http):
+    pagina = cliente_http.get("/jogos/yu-gi-oh").get_data(as_text=True)
+    assert pagina.count('class="cartao"') == 5 and "<h1>Yu-Gi-Oh!</h1>" in pagina
     assert ">Dark Magician<" in pagina and ">Charizard<" not in pagina
-    assert re.search(r'jogo=yu-gi-oh"\s+aria-current="page"', pagina)
+    assert "5 cartas de Yu-Gi-Oh! recebendo lances." in pagina
+    assert re.search(r'<option value="yu-gi-oh" selected>', pagina), "o combobox do topo mostra o jogo da página"
+
+
+def test_pagina_de_jogo_sem_leiloes_e_de_jogo_desconhecido(cliente_http):
+    vazia = cliente_http.get("/jogos/one-piece-card-game")
+    assert vazia.status_code == 200
+    assert "Nenhum leilão ativo de One Piece Card Game agora." in vazia.get_data(as_text=True)
+    assert cliente_http.get("/jogos/xadrez").status_code == 404
+
+
+def test_pagina_de_jogo_reserva_o_espaco_dos_filtros_proprios(cliente_http, app, monkeypatch):
+    assert "jogo__filtros" not in cliente_http.get("/jogos/pokemon").get_data(as_text=True)
+
+    # Qualquer template registrado para o jogo entra no painel; aqui, um que já existe.
+    monkeypatch.setitem(FILTROS_POR_JOGO, "pokemon", "_icones.html")
+    com_filtros = cliente_http.get("/jogos/pokemon").get_data(as_text=True)
+    assert 'class="jogo jogo--com-filtros"' in com_filtros
+    assert '<aside class="jogo__filtros" aria-label="Filtros de Pokémon">' in com_filtros
+    assert "jogo__filtros" not in cliente_http.get("/jogos/yu-gi-oh").get_data(as_text=True)
+
+
+def test_jogo_do_combobox_leva_para_a_pagina_do_jogo(cliente_http):
+    assert cliente_http.get("/leiloes?jogo=yu-gi-oh").headers["Location"] == "/jogos/yu-gi-oh"
+    assert cliente_http.get("/leiloes?jogo=yu-gi-oh&q=dark").headers["Location"] == "/jogos/yu-gi-oh?q=dark"
+    todos = cliente_http.get("/leiloes?jogo=&q=")
+    assert todos.status_code == 200 and todos.get_data(as_text=True).count('class="cartao"') == 15
 
 
 def test_jogo_desconhecido_volta_para_todos(cliente_http):
     assert cliente_http.get("/leiloes?jogo=xadrez").headers["Location"] == "/leiloes"
+
+
+@pytest.mark.parametrize("url, achadas", [
+    ("/leiloes?q=charizard", ["Charizard"]),
+    ("/leiloes?q=DRAGON", ["Shivan Dragon", "Blue-Eyes White Dragon", "Red-Eyes Black Dragon"]),
+    ("/leiloes?q=4/102", ["Charizard"]),
+    ("/leiloes?q=lob-0", ["Dark Magician", "Blue-Eyes White Dragon", "Red-Eyes Black Dragon"]),
+    ("/leiloes?q=dragon+156", ["Shivan Dragon"]),
+    ("/leiloes?q=++blue-eyes+++dragon+", ["Blue-Eyes White Dragon"]),
+    ("/leiloes?q=base+set", []),
+    ("/jogos/magic-the-gathering?q=dragon", ["Shivan Dragon"]),
+    ("/jogos/pokemon?q=dragon", []),
+    ("/leiloes?q=%25", []),
+    ("/leiloes?q=_", []),
+])
+def test_busca_do_topo_acha_pelo_nome_ou_pelo_codigo(cliente_http, url, achadas):
+    """O código é o que a edição traz entre parênteses; o nome da coleção ("Base Set") fica fora da busca."""
+    pagina = cliente_http.get(url).get_data(as_text=True)
+    nomes = re.findall(r'<h2 class="cartao__nome"[^>]*><a [^>]*>([^<]+)</a>', pagina)
+    assert sorted(nomes) == sorted(achadas)
+    if not achadas:
+        assert "Nenhum leilão ativo" in pagina and "Ver todos os leilões" in pagina
+
+
+def test_busca_mostra_o_que_foi_digitado_e_quantas_cartas_achou(cliente_http):
+    pagina = cliente_http.get("/leiloes?q=dragon").get_data(as_text=True)
+    assert "3 cartas com “dragon” recebendo lances." in pagina
+    assert 'name="q" type="search" value="dragon"' in pagina
+    assert "1 carta de Magic: The Gathering com “dragon” recebendo lances." in cliente_http.get(
+        "/jogos/magic-the-gathering?q=dragon").get_data(as_text=True)
+
+
+def test_busca_so_acha_leilao_ativo(cliente_http, banco):
+    banco.execute("UPDATE leiloes SET status = 'cancelado' WHERE id = ?", (leilao_id(banco, "Charizard"),))
+    assert ">Charizard<" not in cliente_http.get("/leiloes?q=charizard").get_data(as_text=True)
+
+
+def test_inicio_tem_o_destaque_os_jogos_e_os_leiloes_ativos(cliente_http):
+    resposta = cliente_http.get("/")
+    pagina = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200 and pagina.count('class="cartao"') == 15
+    assert '<a class="botao botao--primario" href="#leiloes">Quero comprar</a>' in pagina
+    assert '<section class="vitrine" id="leiloes"' in pagina
+    assert pagina.index('class="destaque"') < pagina.index('id="leiloes"')
+    for slug, nome, total in (("pokemon", "Pokémon", 5), ("magic-the-gathering", "Magic: The Gathering", 5),
+                              ("yu-gi-oh", "Yu-Gi-Oh!", 5), ("one-piece-card-game", "One Piece Card Game", 0)):
+        assert re.search(rf'<a class="jogo-card" href="/jogos/{slug}">\s*<img class="jogo-card__capa" '
+                         rf'src="/static/img/jogos/{slug}.webp".*?<span class="jogo-card__nome">{re.escape(nome)}'
+                         rf'</span>\s*<span class="jogo-card__qtd">{total} leil', pagina, re.S)
+        assert cliente_http.get(f"/static/img/jogos/{slug}.webp").status_code == 200
+
+
+def test_quero_vender_leva_a_entrar_ou_direto_a_criar_leilao(cliente_http):
+    assert '<a class="botao botao--secundario" href="/entrar?proximo=/vender/novo">Quero vender</a>' in (
+        cliente_http.get("/").get_data(as_text=True))
+    criar_conta(cliente_http)
+    assert '<a class="botao botao--secundario" href="/vender/novo">Quero vender</a>' in (
+        cliente_http.get("/").get_data(as_text=True))
+
+
+def test_topo_tem_titulo_busca_conta_e_meus_lances(cliente_http):
+    pagina = cliente_http.get("/leiloes").get_data(as_text=True)
+    topo = pagina[pagina.index('<header class="topo">'):pagina.index("</header>")]
+    assert topo.index('class="marca"') < topo.index('class="busca-topo"') < topo.index('class="nav"')
+    assert '<a class="marca" href="/"' in topo and 'action="/leiloes" role="search"' in topo
+    opcoes = re.findall(r'<option value="([^"]*)"(?: selected)?>([^<]+)</option>', topo)
+    assert opcoes == [("", "Todos os jogos"), ("pokemon", "Pokémon"), ("magic-the-gathering", "Magic: The Gathering"),
+                      ("yu-gi-oh", "Yu-Gi-Oh!"), ("one-piece-card-game", "One Piece Card Game")]
+    for trecho in ('href="/minha-conta/lances">Meus lances</a>', ">Entrar</a>", ">Criar conta</a>"):
+        assert trecho in topo
+    assert cliente_http.get("/minha-conta/lances").headers["Location"] == "/entrar?proximo=/minha-conta/lances"
+
+    criar_conta(cliente_http)
+    topo = cliente_http.get("/minha-conta/lances").get_data(as_text=True).split("</header>")[0]
+    assert re.search(r'href="/minha-conta/lances" aria-current="page">Meus lances</a>', topo)
+    assert "Minha Conta" in topo and 'href="/vender"' in topo and ">Entrar</a>" not in topo
 
 
 def test_pagina_tem_trilha_dados_da_carta_e_abas(cliente_http, charizard):
@@ -178,9 +281,10 @@ def test_leilao_fora_do_prazo_nao_recebe_lance(logado, banco, charizard):
     banco.execute("UPDATE leiloes SET data_fim_prevista = ? WHERE id = ?",
                   (para_texto(agora_utc() - timedelta(seconds=1)), charizard))
     pagina = logado.get(f"/leiloes/{charizard}").get_data(as_text=True)
-    assert "Encerrado" in pagina and "Este leilão não recebe mais lances" in pagina
+    assert "Encerrado" in pagina and "data-form-lance" not in pagina
     resposta = lance_json(logado, charizard, "9.999,00")
-    assert resposta.status_code == 422 and resposta.get_json()["motivo"] == "prazo_encerrado"
+    assert resposta.status_code == 422 and resposta.get_json()["motivo"] == "leilao_inativo"
+    assert "já foi encerrado" in resposta.get_json()["mensagem"]
 
 
 def test_leilao_que_nao_esta_ativo_nao_recebe_lance(logado, banco, charizard):

@@ -151,6 +151,22 @@ Também são medidos:
 - recusa com o motivo junto ao campo e aceite sem recarregar, nas três larguras;
 - menu do celular operável pelo teclado.
 
+**Etapa do encerramento e do arremate (10/11/2026).** Com a quarta aba de Minha Conta (Arremates), as abas
+e o "Sair" deixaram de caber na mesma linha em 360 px, e a última aba ficava cortada. Agora, quando não
+cabem, o "Sair" sobe para a linha de cima e as abas ficam com a largura toda (`flex-wrap: wrap-reverse`
+em `.conta-abas`). O teste `test_abas_de_minha_conta_cabem_no_celular` mede as quatro abas e o "Sair" em
+360 px. As telas novas (leilão encerrado e Arremates) foram conferidas em 360 e 1280 px, sem rolagem horizontal.
+
+**Etapa da criação de leilão (10/11/2026).** As telas de Vender (lista das cartas, busca no catálogo e
+formulário do leilão) foram conferidas em 360 e 1280 px, com as APIs reais, sem rolagem horizontal. O teste
+`test_criar_leilao_cabe_no_celular` mede em 360 px os filtros de jogo, o campo de busca e todos os campos
+do formulário (dentro da tela, fonte de 16 px ou mais, pelo menos 44 px de altura).
+
+**Etapa da área do administrador (10/11/2026).** As nove telas de Administração, o pagamento do arremate e
+a Carteira com saque foram conferidos em 360 e 1280 px. Em 360 px o botão "Registrar entrega e repassar ao
+vendedor" passava da largura da tela; agora ele quebra em duas linhas. O teste
+`test_administracao_cabe_no_celular` percorre as telas do administrador em 360 px e mede as nove abas.
+
 Para conferir que os critérios novos detectam problemas, o bloco de tablet do CSS foi removido de
 propósito. O teste falhou em 768 px ("o campo de valor ficou estreito demais para digitar") e também
 em 360 e 390 px (rolagem horizontal). O CSS foi restaurado em seguida.

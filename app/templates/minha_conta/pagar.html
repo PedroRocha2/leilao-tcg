@@ -1,0 +1,31 @@
+{% extends "minha_conta/_layout.html" %}
+{% import "_icones.html" as icone %}
+{% block titulo %}Pagar {{ item.nome }} · Minha Conta{% endblock %}
+{% block secao %}
+<p class="voltar"><a href="{{ url_for('minha_conta.arremates') }}">Meus arremates</a></p>
+<h2 id="titulo-secao">Pagar arremate</h2>
+<div class="saldo">
+  <p class="rotulo" translate="no">{{ item.nome }} <span aria-hidden="true">·</span> {{ item.edicao }}</p>
+  <p class="valor-grande">{{ item.valor }}</p>
+  <p class="saldo__nota">Pague até {{ item.prazo }}. Depois do pagamento, retire a carta na loja com o código de retirada.</p>
+</div>
+
+<form class="formulario formulario--estreito" method="post" action="{{ url_for('minha_conta.pagar', leilao_id=item.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% if erro %}<p class="campo__erro" role="alert">{{ icone.alerta() }}<span>{{ erro }}</span></p>{% endif %}
+  {% if tem_saldo %}
+  <label class="opcao">
+    <input type="checkbox" name="usar_saldo" value="sim" {% if usar_saldo %}checked{% endif %}>
+    <span>Usar o saldo da carteira ({{ saldo }} disponíveis){% if not saldo_cobre %}; faltam {{ restante }}{% endif %}</span>
+  </label>
+  {% endif %}
+  <fieldset class="opcoes">
+    <legend>{% if tem_saldo and saldo_cobre %}Forma de pagamento, se não usar o saldo{% elif tem_saldo %}Forma de pagamento do que o saldo não cobrir{% else %}Forma de pagamento{% endif %}</legend>
+    {% for opcao in formas %}
+    <label class="opcao"><input type="radio" name="forma" value="{{ opcao }}" {% if opcao == forma %}checked{% endif %}><span>{{ "Pix" if opcao == "pix" else "Cartão" }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <p class="formulario__nota">Este ambiente não faz cobrança de verdade: o gateway de pagamento confirma o Pix ou o cartão na hora.</p>
+  <button class="botao botao--primario botao--largo" type="submit">Pagar {{ item.valor }}</button>
+</form>
+{% endblock %}
