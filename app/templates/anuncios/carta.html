@@ -5,7 +5,8 @@
 {% block descricao %}Informe a condição, o lance mínimo inicial e o período do leilão de {{ carta.nome }}.{% endblock %}
 {% block conteudo %}
 {% set rotulos = {"foto": "Foto", "edicao": "Edição", "condicao": "Condição", "descricao": "Descrição",
-                  "lance_inicial": "Lance mínimo inicial", "inicio": "Início", "fim": "Fim previsto"} %}
+                  "fotos": "Fotos da sua carta", "lance_inicial": "Lance mínimo inicial", "inicio": "Início",
+                  "fim": "Fim previsto"} %}
 {% set primeiro_erro = (rotulos.keys()|select("in", erros)|first) if erros else None %}
 {% macro erro_de(nome) %}{% if erros.get(nome) %}<p class="campo__erro" id="erro-{{ nome }}">{{ icone.alerta() }}<span>{{ erros[nome] }}</span></p>{% endif %}{% endmacro %}
 <nav class="trilha" aria-label="Você está em">
@@ -54,7 +55,7 @@
     </div>
     {% endif %}
 
-    <form class="formulario" method="post" action="{{ url_for('anuncios.novo') }}" data-avisar-ao-sair>
+    <form class="formulario" method="post" action="{{ url_for('anuncios.novo') }}" enctype="multipart/form-data" data-avisar-ao-sair>
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="jogo" value="{{ jogo.slug }}">
       <input type="hidden" name="carta" value="{{ carta.id }}">
@@ -89,6 +90,17 @@
                   {% if erros.get('descricao') %}aria-invalid="true"{% endif %}{% if primeiro_erro == "descricao" %} autofocus{% endif %}>{{ dados.descricao }}</textarea>
         <p class="campo__ajuda" id="ajuda-descricao">As especificações do catálogo já estão aí. Acrescente o estado da sua carta: riscos, bordas, centralização.</p>
         {{ erro_de("descricao") }}
+      </div>
+
+      <div class="campo campo--fotos{% if erros.get('fotos') %} campo--erro{% endif %}" data-fotos-do-vendedor data-maximo="{{ maximo_de_fotos }}">
+        <label for="fotos">{{ rotulos.fotos }} <span class="campo__opcional">(opcional)</span></label>
+        <input id="fotos" name="fotos" type="file" accept="image/jpeg,image/png,image/webp" multiple
+               aria-describedby="ajuda-fotos{% if erros.get('fotos') %} erro-fotos{% endif %}"
+               {% if erros.get('fotos') %}aria-invalid="true"{% endif %}{% if primeiro_erro == "fotos" %} autofocus{% endif %}>
+        <p class="campo__ajuda" id="ajuda-fotos">Até {{ maximo_de_fotos }} fotos em JPEG, PNG ou WebP, com no máximo {{ megabytes_por_foto }} MB cada. Fotografe a frente, o verso e os cantos: a loja usa as fotos na conferência e elas aparecem no anúncio, depois da imagem do catálogo.{% if erros %} Se você já tinha escolhido fotos, escolha de novo: o navegador não guarda os arquivos quando o formulário volta com erro.{% endif %}</p>
+        <ul class="previas" hidden data-previas aria-label="Fotos escolhidas"></ul>
+        <p class="vh" role="status" aria-live="polite" data-previas-aviso></p>
+        {{ erro_de("fotos") }}
       </div>
 
       {{ campo("lance_inicial", rotulos.lance_inicial ~ " (R$)", dados.lance_inicial, erros.get("lance_inicial"),

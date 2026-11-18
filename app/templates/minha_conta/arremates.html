@@ -19,11 +19,11 @@
     {% if item.pode_pagar or item.codigo or item.entregue_em %}
     <div class="meu-lance__rodape">
       {% if item.pode_pagar %}
-      <p>Pague até {{ item.prazo }} para não perder a carta.</p>
+      <p>Pague até {{ item.prazo }} para não perder a carta. O código de retirada aparece aqui depois do pagamento.</p>
       <a class="botao botao--primario botao--menor" href="{{ url_for('minha_conta.pagar', leilao_id=item.id) }}">Pagar<span class="vh"> {{ item.nome }}</span></a>
       {% endif %}
       {% if item.codigo %}
-      <p>Código de retirada: <strong class="codigo" translate="no">{{ item.codigo }}</strong>{% if not item.pode_pagar %}. Apresente na loja para retirar a carta.{% endif %}</p>
+      <p>Código de retirada: <strong class="codigo" translate="no">{{ item.codigo }}</strong>. Apresente na loja para retirar a carta.</p>
       {% endif %}
       {% if item.entregue_em %}<p>Carta retirada em {{ item.entregue_em }}.</p>{% endif %}
     </div>

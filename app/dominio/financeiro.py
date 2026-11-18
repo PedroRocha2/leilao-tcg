@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from app.dominio.contas import Cliente
 
 ZERO = Decimal("0.00")
-# Sem I, L, O, 0 e 1, que se confundem quando o comprador dita o código no balcão.
+# Sem I, L, O, 0 e 1, que se confundem ao ditar o código.
 _ALFABETO_DO_CODIGO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 
@@ -22,12 +22,11 @@ def novo_codigo_de_retirada() -> str:
 
 
 class OperacaoRecusada(Exception):
-    """Uma regra de negócio impede a operação. A mensagem vai para a tela."""
+    """A mensagem vai para a tela."""
 
 
 @dataclass(eq=False)
 class MovimentacaoCarteira:
-    """Registro de transação financeira na carteira do cliente."""
     tipo: str
     valor: Decimal
     dataHora: datetime
@@ -53,7 +52,6 @@ class Saque:
 
 @dataclass(eq=False)
 class Carteira:
-    """Representa a carteira virtual e saldo disponível do cliente."""
     saldo: Decimal = ZERO
     movimentacoes: list[MovimentacaoCarteira] = field(default_factory=list)
     bloqueado: Decimal = ZERO
@@ -62,11 +60,10 @@ class Carteira:
 
     @property
     def disponivel(self) -> Decimal:
-        """O saldo menos o que está reservado por saques solicitados (RN19)."""
+        """RN19: sem o valor reservado por saques solicitados."""
         return self.saldo - self.bloqueado
 
     def gerarExtrato(self) -> list[MovimentacaoCarteira]:
-        """Retorna o histórico de movimentações em ordem cronológica decrescente."""
         return sorted(self.movimentacoes, key=lambda m: m.dataHora, reverse=True)
 
     def possuiSaldo(self, valor: Decimal) -> bool:
@@ -101,14 +98,13 @@ class Carteira:
         return saque
 
     def pagarSaque(self, saque: Saque, agora: datetime) -> None:
-        """A loja fez a transferência: o valor bloqueado sai do saldo."""
         self._responder(saque, StatusSaque.PAGO, agora)
         self.saldo -= saque.valor
         self.movimentacoes.append(
             MovimentacaoCarteira("débito", -saque.valor, agora, f"Saque por Pix para {saque.chavePix}"))
 
     def recusarSaque(self, saque: Saque, agora: datetime) -> None:
-        """RN19: o valor bloqueado volta ao saldo disponível."""
+        """RN19: o valor bloqueado volta a ficar disponível."""
         self._responder(saque, StatusSaque.RECUSADO, agora)
 
     def _responder(self, saque: Saque, status: StatusSaque, agora: datetime) -> None:
@@ -128,7 +124,7 @@ class StatusTransacao(StrEnum):
 
 @dataclass(eq=False)
 class Transacao:
-    """Arremate: a venda da carta ao cliente que deu o maior lance do leilão encerrado."""
+    """O arremate."""
     valor: Decimal
     dataHora: datetime
     comprador: Cliente
@@ -163,7 +159,7 @@ class Transacao:
         self.formaDePagamento = forma if noGateway > 0 else None
 
     def registrarEntrega(self, codigo: str, agora: datetime) -> None:
-        """RN07: a carta só sai com o código de retirada e com a transação paga."""
+        """RN07."""
         if (codigo or "").strip().upper() != self.codigoRetirada:
             raise OperacaoRecusada("O código de retirada não confere com este arremate.")
         if self.status == StatusTransacao.ENTREGUE:
@@ -174,7 +170,7 @@ class Transacao:
         self.dataEntrega = agora
 
     def expirar(self, agora: datetime) -> None:
-        """RN06: o prazo de pagamento terminou sem pagamento."""
+        """RN06."""
         if self.status != StatusTransacao.AGUARDANDO_PAGAMENTO or agora < self.prazoPagamento:
             raise ValueError("Só expira o arremate que aguarda pagamento e passou do prazo.")
         self.status = StatusTransacao.NAO_PAGA

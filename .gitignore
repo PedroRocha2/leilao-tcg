@@ -7,3 +7,4 @@ test-results/
 .claude/
 .agents/
 skills-lock.json
+docs/

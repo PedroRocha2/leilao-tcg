@@ -1,0 +1,27 @@
+{# Fica dentro do formulário que filtra; `limpar` só vem quando há filtro marcado. #}
+{% macro painel_de_filtros(filtros, limpar=None) %}
+<details class="filtros" open data-filtros>
+  <summary class="filtros__titulo">Filtros</summary>
+  {% for filtro in filtros %}
+  <fieldset class="filtro">
+    <legend>{{ filtro.rotulo }}</legend>
+    <div class="filtro__opcoes">
+      {% for opcao in filtro.opcoes %}
+      <label class="opcao filtro__opcao">
+        <input type="checkbox" name="{{ filtro.chave }}" value="{{ opcao.valor }}"{% if opcao.marcada %} checked{% endif %}>
+        <span translate="no">{{ opcao.nome }}</span>
+        {% if opcao.total is not none %}
+        <span class="filtro__total" aria-hidden="true">{{ opcao.total }}</span>
+        <span class="vh">({{ opcao.total }} {{ "leilão" if opcao.total == 1 else "leilões" }})</span>
+        {% endif %}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  <div class="filtros__acoes" data-resultados>
+    <button class="botao botao--primario botao--menor filtros__aplicar" type="submit">Aplicar filtros</button>
+    {% if limpar %}<a class="filtros__limpar" href="{{ limpar }}">Limpar filtros</a>{% endif %}
+  </div>
+</details>
+{% endmacro %}

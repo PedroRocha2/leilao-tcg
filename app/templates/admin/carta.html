@@ -15,6 +15,19 @@
       <div><dt>Status da carta</dt><dd>{{ carta.status|capitalize }}</dd></div>
       <div><dt>Lances</dt><dd>{{ leilao.lances|length }}</dd></div>
     </dl>
+    {% set do_vendedor = fotos_do_vendedor(carta) %}
+    <div class="fotos-vendedor">
+      <p class="fotos-vendedor__rotulo">Fotos tiradas pelo vendedor ({{ do_vendedor|length }})</p>
+      {% if do_vendedor %}
+      <ul class="fotos-vendedor__lista fotos-vendedor__lista--grande">
+        {% for foto in do_vendedor %}
+        <li><a href="{{ url_da_foto(foto) }}" target="_blank" rel="noopener"><img src="{{ url_da_foto(foto) }}" alt="{{ carta.nome }}: foto {{ loop.index }} tirada pelo vendedor (abre em outra aba)" width="160" height="160" loading="lazy" decoding="async"></a></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="campo__ajuda">O vendedor não enviou fotos desta carta.</p>
+      {% endif %}
+    </div>
   </div>
 
   <div>
@@ -43,7 +56,7 @@
     <form class="admin__bloqueio" method="post" action="{{ url_for('admin.remover_carta', numero=leilao.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {% if pode_remover %}
-      <button class="botao botao--secundario" type="submit">Remover este cadastro</button>
+      <button class="botao botao--perigo" type="submit">Remover este cadastro</button>
       <p class="campo__ajuda">Apaga a carta e o leilão dela. Não dá para desfazer.</p>
       {% else %}
       <p class="campo__ajuda">Este cadastro não pode ser removido: o leilão já foi aprovado ou já aconteceu.</p>

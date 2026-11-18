@@ -121,7 +121,7 @@ BEGIN
     SELECT RAISE(ABORT, 'RN03: o lance é irrevogável');
 END;
 
--- O arremate. UNIQUE em leilao_id: um leilão encerrado gera no máximo uma transação.
+-- O arremate. UNIQUE em leilao_id: no máximo um por leilão.
 CREATE TABLE transacoes (
     id             INTEGER PRIMARY KEY,
     leilao_id      INTEGER NOT NULL UNIQUE REFERENCES leiloes (id),

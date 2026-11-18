@@ -36,7 +36,7 @@ class Transporte:
         self._abrir = abrir or urllib.request.build_opener(_RedirecionamentoConferido).open
 
     def json(self, url: str, corpo: dict | None = None, vazio: tuple[int, ...] = (404,)):
-        """O JSON da resposta, ou None quando a API responde que não achou nada (status em `vazio`)."""
+        """None quando o status está em `vazio` (a API não achou nada)."""
         conteudo, _ = self._pedir(url, "application/json", corpo, vazio)
         if conteudo is None:
             return None

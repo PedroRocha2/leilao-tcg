@@ -1,5 +1,6 @@
 import time
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from threading import Lock
 
@@ -8,12 +9,11 @@ SEIS_HORAS = 6 * 60 * 60
 
 
 class CatalogoIndisponivel(Exception):
-    """A API do jogo não respondeu, ou respondeu algo que não dá para ler."""
+    """A API do jogo não respondeu ou respondeu algo ilegível."""
 
 
 @dataclass(frozen=True)
 class PrecoMedio:
-    """Por quanto a carta é vendida, em média, no mercado que a API consulta, na moeda desse mercado."""
     valor: Decimal
     moeda: str
     fonte: str
@@ -25,23 +25,52 @@ class CartaDoCatalogo:
     id: str
     nome: str
     codigo: str
-    # Mais de uma edição quando a API não separa as impressões da carta (Yu-Gi-Oh!): o vendedor escolhe.
+    # Várias quando a API não separa as impressões (Yu-Gi-Oh!): o vendedor escolhe.
     edicoes: tuple[str, ...]
     especificacoes: tuple[tuple[str, str], ...]
     texto: str
     miniatura: str
     imagem: str
-    # None quando a API não tem o preço da carta, ou só informa na ficha dela (Pokémon).
+    # None também quando o preço só vem na ficha da carta (Pokémon).
     preco: PrecoMedio | None = None
 
 
+@dataclass(frozen=True)
+class Filtro:
+    """`ficha` é o rótulo da especificação; `separar` divide valores múltiplos ("Fire, Water")."""
+    chave: str
+    rotulo: str
+    opcoes: tuple[str, ...]
+    ficha: str
+    separar: Callable[[str], Iterable[str]] | None = None
+    nomes: Mapping[str, str] = field(default_factory=dict)
+
+    def nome(self, valor: str) -> str:
+        return self.nomes.get(valor, valor)
+
+    def valores(self, especificacoes: Mapping[str, str]) -> list[str]:
+        texto = especificacoes.get(self.ficha)
+        if not texto:
+            return []
+        achados = self.separar(texto) if self.separar else [texto]
+        return [valor for valor in dict.fromkeys(achados) if valor in self.opcoes]
+
+
+def atributos(filtros: Iterable[Filtro], especificacoes: Iterable[tuple[str, str]]) -> tuple[tuple[str, str], ...]:
+    ficha = dict(especificacoes)
+    return tuple((filtro.chave, valor) for filtro in filtros for valor in filtro.valores(ficha))
+
+
+def por_virgula(texto: str) -> list[str]:
+    return [parte.strip() for parte in texto.split(",") if parte.strip()]
+
+
 def especificacoes(*pares: tuple[str, object]) -> tuple[tuple[str, str], ...]:
-    """Só as especificações que a API informou, na ordem dada."""
     return tuple((rotulo, str(valor)) for rotulo, valor in pares if valor not in (None, "", []))
 
 
 def preco_medio(valor: object, moeda: str, fonte: str) -> PrecoMedio | None:
-    """O preço que a API informou; None quando ela manda nulo, vazio ou zero, que é como dizem "sem preço"."""
+    """None quando a API manda nulo, vazio ou zero ("sem preço")."""
     try:
         valor = Decimal(str(valor))
     except InvalidOperation:
@@ -50,7 +79,7 @@ def preco_medio(valor: object, moeda: str, fonte: str) -> PrecoMedio | None:
 
 
 class Memoria:
-    """Guarda por um tempo o que muda pouco no catálogo (coleções, sugestões), para não repetir a consulta."""
+    """Cache com validade para consultas que mudam pouco (coleções, sugestões)."""
 
     def __init__(self, validade: float = SEIS_HORAS, relogio=time.monotonic):
         self._validade = validade
@@ -64,7 +93,7 @@ class Memoria:
         if guardado and self._relogio() < guardado[0]:
             return guardado[1]
         valor = consultar()
-        # Resposta vazia não é guardada: a próxima consulta tenta de novo.
+        # Resposta vazia não fica guardada: a próxima consulta tenta de novo.
         if valor:
             with self._trava:
                 self._itens[chave] = (self._relogio() + self._validade, valor)

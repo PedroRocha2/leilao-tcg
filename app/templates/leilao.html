@@ -39,7 +39,8 @@
       <span class="galeria__lupa">{{ icone.lupa() }}Ampliar</span>
     </a>
     <template data-fotos>
-      {% for url, descricao in fotos %}<span data-url="{{ url_da_foto(url) }}" data-descricao="{{ descricao }}"></span>{% endfor %}
+      {% set do_vendedor = fotos_do_vendedor(carta) %}
+      {% for url, descricao in fotos %}<span data-url="{{ url_da_foto(url) }}" data-descricao="{{ descricao }}"{% if url in do_vendedor %} data-inteira{% endif %}></span>{% endfor %}
     </template>
   </section>
 
@@ -115,12 +116,11 @@
         </div>
         <button class="botao botao--primario" type="submit" data-enviar>Dar lance</button>
         <div class="lance__mensagens">
-          <p class="lance__ajuda" id="ajuda-lance" {% if erro %}hidden{% endif %}>Mínimo agora: <span data-minimo>{{ e.minimo }}</span> <span data-minimo-regra>({{ "maior lance + incremento mínimo" if e.tem_lances else "o lance inicial" }})</span>.</p>
+          <p class="lance__ajuda" id="ajuda-lance" {% if erro %}hidden{% endif %}>Lance mínimo: <span data-minimo>{{ e.minimo }}</span></p>
           <p class="lance__erro" id="erro-lance" {% if erro %}role="alert"{% else %}hidden{% endif %}>{{ icone.alerta() }}<span data-erro>{{ erro or "" }}</span></p>
           <p class="lance__ok" hidden data-ok>{{ icone.ok() }}<span data-ok-texto></span></p>
         </div>
       </div>
-      <p class="lance__nota">Lances são definitivos: depois de registrar um lance, você não pode cancelá-lo nem reduzi-lo.</p>
     </form>
     {% endif %}
     <p class="vh" role="status" aria-live="polite" data-anuncio></p>

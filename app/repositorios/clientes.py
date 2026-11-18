@@ -62,11 +62,10 @@ class RepositorioClientes:
         return self.por_id(linha["id"]) if linha else None
 
     def usuario_por_id(self, usuario_id: int) -> Usuario | None:
-        """O cliente ou o administrador com este id."""
         return self.por_id(usuario_id) or self._administrador(usuario_id)
 
     def usuario_por_login(self, login: str) -> Usuario | None:
-        """Quem entra com este e-mail (cliente) ou nome de usuário (administrador)."""
+        """E-mail do cliente ou login do administrador."""
         linha = self.conexao.execute("SELECT id FROM usuarios WHERE email = ?", (login,)).fetchone()
         return self.usuario_por_id(linha["id"]) if linha else None
 
@@ -136,7 +135,6 @@ class RepositorioClientes:
         return clientes
 
     def atualizar(self, cliente: Cliente) -> None:
-        """Grava os dados de cadastro, o bloqueio e os descumprimentos do cliente."""
         with transacao(self.conexao):
             self.conexao.execute(
                 "UPDATE usuarios SET nome = ?, email = ?, telefone = ?, ativo = ? WHERE id = ?",
@@ -146,7 +144,6 @@ class RepositorioClientes:
                 (int(cliente.bloqueado), cliente.descumprimentos, cliente.id))
 
     def salvar_carteira(self, cliente: Cliente) -> None:
-        """Grava o saldo, o valor bloqueado e o que ainda não foi gravado de movimentações e saques."""
         carteira = cliente.carteira
         with transacao(self.conexao):
             self.conexao.execute(
@@ -172,7 +169,6 @@ class RepositorioClientes:
                                          (str(saque.status), resposta, saque.id))
 
     def saques(self) -> list[tuple[Saque, Cliente]]:
-        """Todos os saques com o cliente de cada um, do mais recente para o mais antigo."""
         clientes = self.carregar(
             linha["cliente_id"] for linha in self.conexao.execute(
                 "SELECT DISTINCT c.cliente_id FROM saques s JOIN carteiras c ON c.id = s.carteira_id"))

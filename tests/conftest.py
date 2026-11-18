@@ -21,9 +21,14 @@ def pytest_configure(config):
     config.option.browser_channel = "chrome" if chrome.exists() else "msedge"
 
 
+@pytest.fixture(autouse=True)
+def sem_servidor_de_email(monkeypatch):
+    """Os testes nunca mandam e-mail de verdade, mesmo que a máquina tenha o servidor SMTP configurado."""
+    monkeypatch.delenv("LEILAO_SMTP_SERVIDOR", raising=False)
+
+
 @pytest.fixture
 def app(tmp_path):
-    """Cria e configura uma instância da aplicação para ambiente de testes."""
     return create_app({
         "TESTING": True,
         "DATABASE": str(tmp_path / "teste.sqlite3"),
@@ -32,12 +37,13 @@ def app(tmp_path):
         "CATALOGO": catalogo_de_teste(),
         "PASTA_DE_FOTOS": str(tmp_path / "fotos"),
         "PASTA_DO_CATALOGO": str(tmp_path / "catalogo"),
+        # Os testes nunca falam com o Mercado Pago, mesmo que a máquina tenha a credencial configurada.
+        "MERCADO_PAGO_TOKEN": "",
     })
 
 
 @pytest.fixture
 def cliente_http(app):
-    """Retorna cliente de testes com token CSRF inicializado na sessão."""
     navegador = app.test_client()
     with navegador.session_transaction() as sessao:
         sessao["csrf"] = CSRF
@@ -46,7 +52,6 @@ def cliente_http(app):
 
 @pytest.fixture
 def banco(app):
-    """Fornece conexão com o banco de dados SQLite temporário do teste."""
     conexao = conectar(app.config["DATABASE"])
     yield conexao
     conexao.close()

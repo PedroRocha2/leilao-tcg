@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from app.apresentacao import FUSO_DA_LOJA
 from app.catalogo import Catalogo, CatalogoIndisponivel, criar_catalogo
+from app.correio import CorreioIndisponivel
 from app.db import agora_utc
 from app.dominio import senhas
 from app.dominio.contas import Cliente
@@ -96,7 +97,6 @@ class TransporteFalso:
 
     def _tcgdex(self, caminho: str, corpo: dict | None):
         if corpo is None:
-            # A ficha REST da carta, de onde vem o preço.
             return amostra("pokemon_fichas").get(caminho.rsplit("/", 1)[-1])
         variaveis = corpo["variables"]
         if not variaveis:
@@ -144,6 +144,20 @@ class TransporteFalso:
 
 def catalogo_de_teste() -> Catalogo:
     return criar_catalogo("teste", TransporteFalso())
+
+
+class CorreioFalso:
+    """Guarda os e-mails que a loja mandaria, como (destinatário, assunto, texto), sem falar com servidor nenhum."""
+    externo = True
+
+    def __init__(self):
+        self.enviados: list[tuple[str, str, str]] = []
+        self.fora_do_ar = False
+
+    def enviar(self, destinatario: str, assunto: str, texto: str) -> None:
+        if self.fora_do_ar:
+            raise CorreioIndisponivel("fora do ar (teste)")
+        self.enviados.append((destinatario, assunto, texto))
 
 
 def avancar_relogio(app, **quanto) -> None:

@@ -14,8 +14,7 @@ if TYPE_CHECKING:
 
 JANELA_DE_PRORROGACAO = timedelta(minutes=3)
 PRORROGACAO = timedelta(minutes=3)
-# Valores iniciais da loja; o lojista muda nas configurações (RF15). RN17: valem como estavam quando o
-# leilão foi criado, por isso ficam gravados em cada leilão.
+# Padrões da loja (RF15); cada leilão grava os seus (RN17).
 INCREMENTO_DA_LOJA = Decimal("5.00")
 TAXA_DA_LOJA = Decimal("10.00")
 PRAZO_DE_PAGAMENTO = timedelta(hours=48)
@@ -32,13 +31,14 @@ class StatusLeilao(StrEnum):
 
 
 class StatusCarta(StrEnum):
-    """Os status do RF14 que já têm fluxo implementado."""
+    """RF14."""
     AGUARDANDO_DEPOSITO = "aguardando depósito"
     RECUSADA = "recusada"
     APROVADA = "aprovada"
     EM_LEILAO = "em leilão"
     ARREMATADA = "arrematada"
     DEVOLVIDA_AO_VENDEDOR = "devolvida ao vendedor"
+    CANCELADA = "cancelada"
     PAGA = "paga"
     ENTREGUE = "entregue"
 
@@ -76,6 +76,8 @@ class Carta:
     vendedor: Cliente
     status: str
     fotos: list[str] = field(default_factory=list)
+    # Pares (filtro, valor).
+    atributos: list[tuple[str, str]] = field(default_factory=list)
     id: int | None = None
 
     def adicionarFoto(self, url: str) -> None:
@@ -180,7 +182,7 @@ class Leilao:
             self.dataFimPrevista += PRORROGACAO
 
     def aprovar(self, agora: datetime | None = None) -> None:
-        """RN12: a loja recebeu a carta em depósito e aprovou o leilão."""
+        """RN12."""
         agora = agora or datetime.now(UTC)
         if self.status != StatusLeilao.PENDENTE:
             raise ValueError("Só um leilão que aguarda aprovação pode ser aprovado.")
@@ -190,7 +192,7 @@ class Leilao:
         self.carta.atualizarStatus(StatusCarta.APROVADA)
 
     def recusar(self, motivo: str) -> None:
-        """RF05: a loja conferiu a carta e recusou o leilão. O motivo fica registrado para o vendedor."""
+        """RF05."""
         if self.status != StatusLeilao.PENDENTE:
             raise ValueError("Só um leilão que aguarda aprovação pode ser recusado.")
         if not (motivo or "").strip():
@@ -199,8 +201,30 @@ class Leilao:
         self.motivoRecusa = motivo.strip()
         self.carta.atualizarStatus(StatusCarta.RECUSADA)
 
+    def impedimentoParaCancelar(self, agora: datetime | None = None) -> str | None:
+        agora = agora or datetime.now(UTC)
+        if self.lances:
+            return "Este leilão já recebeu lances e não pode mais ser cancelado."
+        emAberto = self.status in (StatusLeilao.PENDENTE, StatusLeilao.APROVADO, StatusLeilao.ATIVO)
+        if not emAberto or (self.status == StatusLeilao.ATIVO and agora >= self.dataFimPrevista):
+            return "Este leilão já terminou e não pode mais ser cancelado."
+        return None
+
+    def podeSerCancelado(self, agora: datetime | None = None) -> bool:
+        return self.impedimentoParaCancelar(agora) is None
+
+    def cancelar(self, agora: datetime | None = None) -> None:
+        """RF20: só sem lances, que são irrevogáveis (RN03)."""
+        agora = agora or datetime.now(UTC)
+        impedimento = self.impedimentoParaCancelar(agora)
+        if impedimento is not None:
+            raise ValueError(impedimento)
+        self.status = StatusLeilao.CANCELADO
+        self.dataFimReal = agora
+        self.carta.atualizarStatus(StatusCarta.CANCELADA)
+
     def iniciar(self, agora: datetime | None = None) -> None:
-        """RN12: o leilão aprovado entra em andamento quando a data de início chega."""
+        """RN12."""
         agora = agora or datetime.now(UTC)
         if self.status != StatusLeilao.APROVADO:
             raise ValueError("Só um leilão aprovado pode ser iniciado.")
@@ -211,17 +235,13 @@ class Leilao:
 
     def encerrar(self, agora: datetime | None = None,
                  prazoDePagamento: timedelta = PRAZO_DE_PAGAMENTO) -> Transacao | None:
-        """Encerra o leilão cujo prazo terminou e gera o arremate para o maior lance, se houver.
-
-        O arremate já sai com a taxa da loja e o valor líquido do vendedor (RF13), o código de retirada
-        (RF10) e o prazo de pagamento (RN06).
-        """
+        """O arremate sai com taxa e líquido (RF13), código de retirada (RF10) e prazo de pagamento (RN06)."""
         agora = agora or datetime.now(UTC)
         if self.status != StatusLeilao.ATIVO:
             raise ValueError("Só um leilão ativo pode ser encerrado.")
         if agora < self.dataFimPrevista:
             raise ValueError("O prazo deste leilão ainda não terminou.")
-        # O leilão termina no fim do prazo, não no instante em que o sistema processa o encerramento.
+        # Termina no fim do prazo, não quando o sistema processa o encerramento.
         self.status = StatusLeilao.ENCERRADO
         self.dataFimReal = self.dataFimPrevista
         vencedor = self.getMaiorLance()

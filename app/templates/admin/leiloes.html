@@ -1,6 +1,11 @@
 {% extends "admin/_layout.html" %}
 {% block titulo %}Leilões · Administração{% endblock %}
 {% block secao %}
+{% if a_retirar %}
+<h2>Entregas pendentes</h2>
+<p class="admin__nota">Cartas pagas que ainda estão na loja. Quando o comprador vier retirar, abra a entrega dele para conferir o código de retirada.</p>
+{% include "admin/_entregas_pendentes.html" %}
+{% endif %}
 <h2 id="titulo-secao">Leilões aguardando aprovação</h2>
 <p class="admin__nota">Confira a carta que o vendedor trouxe à loja. Aprovar registra o depósito e libera o leilão; recusar exige o motivo, que o vendedor vê em Vender.</p>
 {% if pendentes %}
@@ -8,7 +13,7 @@
   {% for leilao in pendentes %}
   {% set carta = leilao.carta %}
   <li class="pendente">
-    <img class="pendente__foto" src="{{ url_da_foto(carta.fotos[0]) }}" alt="{{ carta.nome }}: foto enviada pelo vendedor" width="600" height="838" loading="lazy" decoding="async">
+    <img class="pendente__foto" src="{{ url_da_foto(carta.fotos[0]) }}" alt="{{ carta.nome }}: imagem da carta" width="600" height="838" loading="lazy" decoding="async">
     <div class="pendente__dados">
       <h3 class="pendente__nome" translate="no"><a href="{{ url_for('leiloes.detalhe', leilao_id=leilao.id) }}">{{ carta.nome }}</a></h3>
       <p class="pendente__sub">Leilão {{ leilao.id }} <span aria-hidden="true">·</span> {{ carta.jogo.nome }} <span aria-hidden="true">·</span> <span translate="no">{{ carta.edicao }}</span> <span aria-hidden="true">·</span> <span translate="no">{{ carta.condicao }}</span></p>
@@ -19,6 +24,19 @@
         <div><dt>Fim previsto</dt><dd>{{ leilao.dataFimPrevista|data_hora }}</dd></div>
       </dl>
       <p class="pendente__descricao">{{ carta.descricao }}</p>
+      {% set do_vendedor = fotos_do_vendedor(carta) %}
+      {% if do_vendedor %}
+      <div class="fotos-vendedor">
+        <p class="fotos-vendedor__rotulo">Fotos tiradas pelo vendedor ({{ do_vendedor|length }})</p>
+        <ul class="fotos-vendedor__lista">
+          {% for foto in do_vendedor %}
+          <li><a href="{{ url_da_foto(foto) }}" target="_blank" rel="noopener"><img src="{{ url_da_foto(foto) }}" alt="{{ carta.nome }}: foto {{ loop.index }} tirada pelo vendedor (abre em outra aba)" width="96" height="96" loading="lazy" decoding="async"></a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <p class="pendente__sub">O vendedor não enviou fotos da carta.</p>
+      {% endif %}
       <p><a href="{{ url_for('admin.carta', numero=leilao.id) }}">Corrigir os dados da carta</a></p>
     </div>
     <div class="pendente__acoes">

@@ -1,10 +1,10 @@
-"""O que o lojista faz no sistema (RN14): cada função é um caso de uso da área de administração."""
+"""Casos de uso do lojista (RN14)."""
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from app.anuncio import PREFIXO_DAS_FOTOS
+from app.anuncio import apagar_fotos
 from app.cadastro import conferir_contato
 from app.db import transacao
 from app.dominio.contas import Cliente
@@ -28,7 +28,7 @@ def _leilao(leiloes: RepositorioLeiloes, numero: int) -> Leilao:
 
 
 def aprovar_leilao(leiloes: RepositorioLeiloes, numero: int, agora: datetime) -> Leilao:
-    """RF05: a loja conferiu a carta, registra o depósito e aprova. Se o início já chegou, o leilão começa."""
+    """RF05: registra o depósito e aprova; se o início já chegou, o leilão começa."""
     with transacao(leiloes.conexao, imediata=True):
         leilao = _leilao(leiloes, numero)
         try:
@@ -42,7 +42,7 @@ def aprovar_leilao(leiloes: RepositorioLeiloes, numero: int, agora: datetime) ->
 
 
 def recusar_leilao(leiloes: RepositorioLeiloes, numero: int, motivo: str) -> Leilao:
-    """RF05: a loja recusa o leilão e registra o motivo, que o vendedor vê em Vender."""
+    """RF05: recusa o leilão com o motivo, que o vendedor vê."""
     with transacao(leiloes.conexao, imediata=True):
         leilao = _leilao(leiloes, numero)
         try:
@@ -55,7 +55,7 @@ def recusar_leilao(leiloes: RepositorioLeiloes, numero: int, motivo: str) -> Lei
 
 def atualizar_cliente(clientes: RepositorioClientes, cliente: Cliente, nome: str, email: str,
                       telefone: str) -> Cliente:
-    """RF02: o administrador corrige os dados de cadastro do cliente."""
+    """RF02."""
     dados, erros = conferir_contato(clientes, nome, email, telefone, exceto=cliente.id)
     if erros:
         raise DadosInvalidos(erros)
@@ -65,7 +65,7 @@ def atualizar_cliente(clientes: RepositorioClientes, cliente: Cliente, nome: str
 
 
 def definir_bloqueio(clientes: RepositorioClientes, cliente: Cliente, bloqueado: bool) -> Cliente:
-    """RF02: bloqueia ou desbloqueia a conta. Bloqueada, ela não dá lances nem cria leilões (RN15)."""
+    """RF02: conta bloqueada não dá lances nem cria leilões (RN15)."""
     cliente.bloqueado = bloqueado
     clientes.atualizar(cliente)
     return cliente
@@ -73,7 +73,7 @@ def definir_bloqueio(clientes: RepositorioClientes, cliente: Cliente, bloqueado:
 
 def atualizar_carta(leiloes: RepositorioLeiloes, leilao: Leilao, nome: str, jogo_id: str, edicao: str,
                     condicao: str) -> Leilao:
-    """RF04: o administrador corrige nome, jogo, edição e condição depois de conferir a carta."""
+    """RF04."""
     nome, edicao = " ".join((nome or "").split()), " ".join((edicao or "").split())
     jogo = next((j for j in leiloes.jogos() if str(j.id) == str(jogo_id)), None)
     erros: dict[str, str] = {}
@@ -94,23 +94,22 @@ def atualizar_carta(leiloes: RepositorioLeiloes, leilao: Leilao, nome: str, jogo
 
 
 def pode_remover(leilao: Leilao) -> bool:
-    """Só sai do sistema a carta cujo leilão não chegou a acontecer: lances são irrevogáveis (RN03)."""
+    """Só sem lances: lances são irrevogáveis (RN03)."""
     return leilao.status in (StatusLeilao.PENDENTE, StatusLeilao.CANCELADO) and not leilao.lances
 
 
 def remover_carta(leiloes: RepositorioLeiloes, leilao: Leilao, pasta_de_fotos: Path) -> None:
-    """RF04: remove um cadastro inválido, com o leilão e as fotos da carta."""
+    """RF04: remove o cadastro inválido, com leilão e fotos."""
     if not pode_remover(leilao):
-        raise OperacaoRecusada("Só dá para remover a carta cujo leilão ainda aguarda aprovação ou foi recusado.")
+        raise OperacaoRecusada(
+            "Só dá para remover a carta cujo leilão ainda aguarda aprovação, foi recusado ou foi cancelado.")
     leiloes.remover(leilao)
-    for foto in leilao.carta.fotos:
-        if foto.startswith(PREFIXO_DAS_FOTOS):
-            (pasta_de_fotos / foto.removeprefix(PREFIXO_DAS_FOTOS)).unlink(missing_ok=True)
+    apagar_fotos(leilao.carta, pasta_de_fotos)
 
 
 def configurar_loja(loja: RepositorioLoja, taxa: str, incremento: str, prazo_pagamento: str,
                     prazo_reoferta: str) -> ConfiguracaoLoja:
-    """RF15: taxa percentual, incremento mínimo e prazos. Taxa e incremento valem para leilões novos (RN17)."""
+    """RF15: taxa e incremento só valem para leilões novos (RN17)."""
     erros: dict[str, str] = {}
     valores: dict[str, object] = {}
     try:
@@ -138,17 +137,16 @@ def configurar_loja(loja: RepositorioLoja, taxa: str, incremento: str, prazo_pag
     return configuracao
 
 
-def registrar_entrega(leiloes: RepositorioLeiloes, clientes: RepositorioClientes, codigo: str,
+def registrar_entrega(leiloes: RepositorioLeiloes, clientes: RepositorioClientes, numero: int, codigo: str,
                       agora: datetime) -> Leilao:
-    """RF12: entrega a carta a quem apresenta o código de retirada e repassa o valor líquido ao vendedor.
-
-    RN07: só com a transação paga. RN08: o repasse acontece aqui, e só aqui.
-    """
+    """RF12: entrega com o código de retirada e a transação paga (RN07); o repasse só acontece aqui (RN08)."""
+    if not (codigo or "").strip():
+        raise OperacaoRecusada("Informe o código de retirada que o comprador apresentou.")
     with transacao(leiloes.conexao, imediata=True):
-        leilao = leiloes.por_codigo_de_retirada(codigo or "")
-        if leilao is None:
-            raise OperacaoRecusada("Nenhum arremate tem este código de retirada.")
+        leilao = _leilao(leiloes, numero)
         arremate = leilao.transacao
+        if arremate is None:
+            raise OperacaoRecusada(f"O leilão {numero} não tem arremate.")
         arremate.registrarEntrega(codigo, agora)
         leilao.carta.atualizarStatus(StatusCarta.ENTREGUE)
         arremate.vendedor.carteira.creditar(
@@ -160,7 +158,7 @@ def registrar_entrega(leiloes: RepositorioLeiloes, clientes: RepositorioClientes
 
 def responder_saque(clientes: RepositorioClientes, saque_id: int, pagar: bool,
                     agora: datetime) -> tuple[Saque, Cliente]:
-    """RF22: o lojista registra a transferência feita por Pix (saque pago) ou recusa o saque (RN19)."""
+    """RF22: marca o saque como pago ou recusa (RN19)."""
     with transacao(clientes.conexao, imediata=True):
         par = next(((saque, cliente) for saque, cliente in clientes.saques() if saque.id == saque_id), None)
         if par is None:
@@ -175,8 +173,10 @@ def responder_saque(clientes: RepositorioClientes, saque_id: int, pagar: bool,
 
 
 def desfecho(leilao: Leilao) -> str:
-    """RF16: como o leilão finalizado terminou."""
+    """RF16."""
     if leilao.status == StatusLeilao.CANCELADO:
+        if leilao.carta.status == StatusCarta.CANCELADA:
+            return "Cancelado pelo vendedor"
         return "Cancelado (recusado pela loja)" if leilao.motivoRecusa else "Cancelado"
     arremate = leilao.transacao
     if arremate is None:
@@ -187,7 +187,7 @@ def desfecho(leilao: Leilao) -> str:
 
 def extrato_financeiro(leiloes: RepositorioLeiloes, clientes: RepositorioClientes, inicio: datetime,
                        fim: datetime) -> dict:
-    """RF18: arremates, pagamentos, taxas retidas, repasses e saques pagos entre `inicio` e `fim`."""
+    """RF18."""
     def no_periodo(momento: datetime | None) -> bool:
         return momento is not None and inicio <= momento < fim
 

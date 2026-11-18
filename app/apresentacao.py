@@ -1,8 +1,10 @@
 import re
 import unicodedata
+from collections.abc import Collection, Mapping
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
+from app.anuncio import foto_do_vendedor, pode_excluir
 from app.db import para_texto
 from app.dominio.contas import Cliente
 from app.dominio.cpf import mascarar_cpf
@@ -11,15 +13,15 @@ from app.dominio.financeiro import StatusTransacao
 from app.dominio.leiloes import Carta, Leilao, StatusCarta, StatusLeilao
 
 FUSO_DA_LOJA = ZoneInfo("America/Sao_Paulo")
-_DETALHE_DA_FOTO = {"frente": "frente da carta", "arte": "detalhe da arte", "canto": "detalhe do canto inferior"}
-# RF14: como o vendedor lê o status de cada carta.
+_DETALHE_DA_FOTO = {"frente": "frente da carta", "arte": "detalhe da arte", "canto": "detalhe do canto inferior",
+                    "catalogo": "imagem do catálogo"}
+# RF14
 _SITUACAO_DA_CARTA = {StatusCarta.APROVADA: "Aprovada (aguardando início)",
                       StatusCarta.ARREMATADA: "Arrematada (aguardando pagamento)",
                       StatusCarta.PAGA: "Paga (aguardando retirada)",
                       StatusCarta.ENTREGUE: "Entregue (repasse efetuado)"}
 _SITUACAO_DO_ARREMATE = {StatusTransacao.PAGO: "Pago, aguardando retirada",
                          StatusTransacao.NAO_PAGA: "Não pago no prazo"}
-# As moedas em que os catálogos de cartas informam o preço.
 _MOEDAS = {"USD": ("US$", "dólares"), "EUR": ("€", "euros")}
 
 
@@ -71,9 +73,16 @@ def slug(nome: str) -> str:
 
 def descricao_da_foto(leilao: Leilao, url: str, posicao: int) -> str:
     carta = leilao.carta
+    if foto_do_vendedor(url):
+        numero = fotos_do_vendedor(carta).index(url) + 1
+        return f"{carta.nome}, {carta.edicao}: foto {numero} tirada pelo vendedor"
     tipo = url.rsplit("/", 1)[-1].rsplit(".", 1)[0].rsplit("-", 1)[-1]
     detalhe = _DETALHE_DA_FOTO.get(tipo, f"foto {posicao}")
     return f"{carta.nome}, {carta.edicao}: {detalhe}"
+
+
+def fotos_do_vendedor(carta: Carta) -> list[str]:
+    return [foto for foto in carta.fotos if foto_do_vendedor(foto)]
 
 
 def situacao(leilao: Leilao, agora: datetime) -> str:
@@ -116,11 +125,12 @@ def nao_iniciado(leilao: Leilao, agora: datetime) -> bool:
 
 
 def aviso(leilao: Leilao, agora: datetime, cliente: Cliente | None) -> str:
-    """O que o painel diz quando o leilão não está recebendo lances."""
     if leilao.status == StatusLeilao.PENDENTE:
         return "Este leilão ainda não começou: aguarda o depósito da carta na loja e a aprovação."
     if nao_iniciado(leilao, agora):
         return f"Este leilão começa em {data_hora(leilao.dataInicio)}."
+    if leilao.carta.status == StatusCarta.CANCELADA:
+        return "Este leilão foi cancelado pelo vendedor."
     return resultado(leilao, cliente) or "Este leilão não recebe mais lances."
 
 
@@ -235,7 +245,7 @@ def meu_lance(leilao: Leilao, cliente: Cliente, agora: datetime) -> dict:
 
 
 def arremate(leilao: Leilao, agora: datetime) -> dict:
-    """O arremate para quem comprou: quanto deve, até quando paga e o código para retirar a carta (RF10)."""
+    """RF10."""
     carta, transacao = leilao.carta, leilao.transacao
     aguardando = transacao.status == StatusTransacao.AGUARDANDO_PAGAMENTO
     return {
@@ -248,14 +258,14 @@ def arremate(leilao: Leilao, agora: datetime) -> dict:
         "situacao": _SITUACAO_DO_ARREMATE.get(transacao.status, transacao.status.capitalize()),
         "prazo": data_hora(transacao.prazoPagamento),
         "pode_pagar": aguardando and agora < transacao.prazoPagamento,
-        # O código só serve para retirar a carta paga; depois da entrega ou do prazo perdido, some.
-        "codigo": transacao.codigoRetirada if aguardando or transacao.status == StatusTransacao.PAGO else None,
+        # Só enquanto a carta paga espera a retirada.
+        "codigo": transacao.codigoRetirada if transacao.status == StatusTransacao.PAGO else None,
         "entregue_em": data_hora(transacao.dataEntrega) if transacao.dataEntrega else None,
     }
 
 
 def anuncio(leilao: Leilao, agora: datetime) -> dict:
-    """Uma carta do vendedor na lista de Vender, com o status do RF14."""
+    """RF14."""
     carta, maior = leilao.carta, leilao.getMaiorLance()
     if leilao.transacao is not None:
         rotulo, valor = "Valor do arremate", formatar_reais(leilao.transacao.valor)
@@ -270,6 +280,8 @@ def anuncio(leilao: Leilao, agora: datetime) -> dict:
         "motivo_recusa": leilao.motivoRecusa,
         "liquido": formatar_reais(leilao.transacao.valorLiquido) if leilao.transacao else None,
         "em_andamento": leilao.estaAberto(agora),
+        "pode_cancelar": leilao.podeSerCancelado(agora),
+        "pode_excluir": pode_excluir(leilao),
         "lance_inicial": formatar_reais(leilao.lanceInicial),
         "rotulo_valor": rotulo,
         "valor": valor,
@@ -278,8 +290,22 @@ def anuncio(leilao: Leilao, agora: datetime) -> dict:
     }
 
 
+def filtros_para_a_tela(filtros, escolhidos: Mapping[str, Collection[str]],
+                        totais: Mapping[str, Mapping[str, int]] | None = None) -> list[dict]:
+    """Com `totais`, só as opções que algum leilão tem ou que estão marcadas; sem eles, todas."""
+    grupos = []
+    for filtro in filtros:
+        marcadas = escolhidos.get(filtro.chave, ())
+        contagem = (totais or {}).get(filtro.chave, {})
+        opcoes = [{"valor": valor, "nome": filtro.nome(valor), "marcada": valor in marcadas,
+                   "total": contagem.get(valor, 0) if totais is not None else None}
+                  for valor in filtro.opcoes if totais is None or valor in contagem or valor in marcadas]
+        if opcoes:
+            grupos.append({"chave": filtro.chave, "rotulo": filtro.rotulo, "opcoes": opcoes})
+    return grupos
+
+
 def preco_de_mercado(preco) -> dict | None:
-    """O valor médio da carta no mercado, para o vendedor ter uma referência ao definir o lance mínimo inicial."""
     if preco is None:
         return None
     simbolo, moeda = _MOEDAS[preco.moeda]
@@ -287,7 +313,6 @@ def preco_de_mercado(preco) -> dict | None:
 
 
 def descricao_sugerida(especificacoes: tuple[tuple[str, str], ...]) -> str:
-    """As especificações do catálogo em uma frase, para o vendedor completar com o estado da carta."""
     return "; ".join(f"{rotulo}: {valor}" for rotulo, valor in especificacoes) + "." if especificacoes else ""
 
 

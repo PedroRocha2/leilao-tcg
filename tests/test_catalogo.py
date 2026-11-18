@@ -57,8 +57,8 @@ def test_magic_traz_uma_carta_por_impressao(catalogo):
     raio = cartas[0]
     assert (raio.id, raio.nome) == (ID_DO_RAIO, "Lightning Bolt")
     assert raio.edicoes == ("Secret Lair Countdown (83)",)
-    assert dict(raio.especificacoes) == {"Tipo": "Instant", "Custo de mana": "{R}", "Raridade": "Rare",
-                                         "Idioma": "EN"}
+    assert dict(raio.especificacoes) == {"Tipo": "Instant", "Cor": "Vermelha", "Custo de mana": "{R}",
+                                         "Raridade": "Rare", "Idioma": "EN"}
     assert raio.texto == "Lightning Bolt deals 3 damage to any target."
     assert "/normal/" in raio.miniatura and "/large/" in raio.imagem
 

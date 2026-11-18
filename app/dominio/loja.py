@@ -7,7 +7,7 @@ from app.dominio.leiloes import INCREMENTO_DA_LOJA, PRAZO_DE_PAGAMENTO, TAXA_DA_
 
 @dataclass(eq=False)
 class ConfiguracaoLoja:
-    """RF15: o que o lojista configura. Taxa e incremento valem para os leilões criados depois (RN17)."""
+    """RF15. Taxa e incremento só valem para leilões novos (RN17)."""
     taxaPercentual: Decimal = TAXA_DA_LOJA
     incrementoMinimo: Decimal = INCREMENTO_DA_LOJA
     prazoPagamentoHoras: int = int(PRAZO_DE_PAGAMENTO.total_seconds() // 3600)
@@ -28,7 +28,7 @@ class ConfiguracaoLoja:
 
 @dataclass(frozen=True)
 class LogOperacao:
-    """RF19: uma linha do log de auditoria. Sem usuário quando a operação é do próprio sistema."""
+    """RF19. Sem usuário quando a operação é do próprio sistema."""
     operacao: str
     dataHora: datetime
     usuarioId: int | None = None

@@ -5,11 +5,12 @@ from decimal import Decimal
 import pytest
 from werkzeug.serving import make_server
 
-from apoio import (ADMIN_LOGIN, ADMIN_SENHA, ITERACOES_DE_TESTE, SENHA, aprovar_leilao, catalogo_de_teste,
-                   criar_leilao, outro_navegador)
+from apoio import (ADMIN_LOGIN, ADMIN_SENHA, CSRF, ITERACOES_DE_TESTE, SENHA, aprovar_leilao, avancar_relogio,
+                   catalogo_de_teste, criar_leilao, lance_json, outro_navegador)
 from app import create_app
 from app.cadastro import criar_conta
 from app.db import agora_utc, conectar, para_texto, transacao
+from app.dominio.cpf import completar_cpf
 from app.repositorios import RepositorioClientes, RepositorioLeiloes
 
 EMAIL = "interface@teste.com"
@@ -20,7 +21,8 @@ def servidor(tmp_path):
     banco = str(tmp_path / "interface.sqlite3")
     app = create_app({"TESTING": True, "DATABASE": banco, "SECRET_KEY": "chave-interface",
                       "PBKDF2_ITERACOES": ITERACOES_DE_TESTE, "CATALOGO": catalogo_de_teste(),
-                      "PASTA_DE_FOTOS": str(tmp_path / "fotos"), "PASTA_DO_CATALOGO": str(tmp_path / "catalogo")})
+                      "PASTA_DE_FOTOS": str(tmp_path / "fotos"), "PASTA_DO_CATALOGO": str(tmp_path / "catalogo"),
+                      "MERCADO_PAGO_TOKEN": ""})
     conexao = conectar(banco)
     criar_conta(RepositorioClientes(conexao), nome="Teste Interface", email=EMAIL, telefone="48991234567",
                 cpf="529.982.247-25", senha=SENHA, confirmacao=SENHA, hoje=date.today(),
@@ -162,12 +164,11 @@ def test_pagina_inicial_leva_aos_leiloes_aos_jogos_e_a_busca(servidor, pagina):
     assert pagina.url.endswith("/#leiloes") and pagina.locator("#leiloes .cartao").count() == 15
 
     assert pagina.get_attribute("text=Quero vender", "href") == "/entrar?proximo=/vender/novo"
-    pagina.click(".jogo-card >> text=Magic: The Gathering")
+    pagina.click(".jogo-card:has(img[alt='Magic: The Gathering'])")
     pagina.wait_for_url("**/jogos/magic-the-gathering")
     assert pagina.inner_text("h1") == "Magic: The Gathering" and pagina.locator(".cartao").count() == 5
     assert pagina.input_value("#busca-jogo") == "magic-the-gathering"
 
-    # A busca do topo respeita o jogo do combobox e acha pelo nome ou pelo código.
     pagina.fill("#busca-carta", "156")
     pagina.press("#busca-carta", "Enter")
     pagina.wait_for_url("**/jogos/magic-the-gathering?q=156")
@@ -200,7 +201,6 @@ def test_vendedor_cria_leilao_pelo_catalogo_e_ve_a_aprovacao_na_tela(servidor, p
     assert pagina.inner_text("#titulo-resultados") == "Sugestões de Yu-Gi-Oh!"
     assert "Just Flip a Coin" in pagina.inner_text(".grade")
 
-    # O filtro troca as cartas enquanto o vendedor digita, sem enviar o formulário.
     titulo = "document.querySelector('#titulo-resultados').textContent.startsWith(%r)"
     pagina.fill("#q", "dark")
     pagina.wait_for_function(titulo % "2 cartas encontradas")
@@ -243,6 +243,37 @@ def test_vendedor_cria_leilao_pelo_catalogo_e_ve_a_aprovacao_na_tela(servidor, p
     assert pagina.inner_text("[data-situacao]") == "Ativo"
 
 
+def test_vendedor_cancela_o_leilao_depois_de_confirmar(servidor, pagina):
+    vendedor = outro_navegador(servidor["app"], email="vendedor@teste.com", cpf="111.444.777-35")
+    assert criar_leilao(vendedor, servidor["app"]).status_code == 303
+
+    pagina.goto(f"{servidor['url']}/entrar?proximo=/vender")
+    pagina.fill("#email", "vendedor@teste.com")
+    pagina.fill("#senha", SENHA)
+    pagina.click("form.formulario button[type=submit]")
+    pagina.wait_for_url("**/vender")
+    confirmar = pagina.locator(".cancelar button[type=submit]")
+    assert not confirmar.is_visible()
+
+    pagina.click(".cancelar summary")
+    assert confirmar.is_visible() and "não dá para desfazer" in pagina.inner_text(".cancelar")
+    pagina.set_viewport_size({"width": 360, "height": 800})
+    assert pagina.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    confirmar.click()
+    pagina.locator(".aviso").filter(has_text="Leilão de Charizard cancelado").wait_for()
+    assert "Cancelada" in pagina.inner_text(".meu-lance")
+    assert pagina.locator(".meu-lance form[action$='/cancelar']").count() == 0
+
+    excluir = pagina.locator(".meu-lance form[action$='/excluir'] button[type=submit]")
+    assert not excluir.is_visible()
+    pagina.click(".cancelar summary")
+    assert excluir.is_visible() and "não dá para desfazer" in pagina.inner_text(".cancelar")
+    assert pagina.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    excluir.click()
+    pagina.locator(".aviso").filter(has_text="Leilão de Charizard excluído do site").wait_for()
+    assert pagina.locator(".meu-lance").count() == 0
+
+
 def test_lojista_entra_aprova_o_leilao_e_percorre_a_administracao(servidor, pagina):
     vendedor = outro_navegador(servidor["app"], email="vendedor@teste.com", cpf="111.444.777-35")
     assert criar_leilao(vendedor, servidor["app"]).status_code == 303
@@ -273,6 +304,52 @@ def test_lojista_entra_aprova_o_leilao_e_percorre_a_administracao(servidor, pagi
     pagina.click(".conta-abas__sair button")
     pagina.wait_for_url("**/leiloes")
     assert pagina.locator(".cartao").count() == 16
+
+
+def test_lojista_abre_o_card_da_entrega_pendente_e_confirma_com_o_codigo(servidor, pagina):
+    app = servidor["app"]
+    vendedor = outro_navegador(app, email="vendedor@teste.com", cpf="111.444.777-35")
+    assert criar_leilao(vendedor, app).status_code == 303
+    conexao = conectar(servidor["banco"])
+    numero = conexao.execute("SELECT MAX(id) FROM leiloes").fetchone()[0]
+    aprovar_leilao(app, numero)
+    comprador = outro_navegador(app, email="comprador@teste.com", cpf=completar_cpf("123456789"))
+    assert lance_json(comprador, numero, "50,00").status_code == 201
+    avancar_relogio(app, days=3, hours=1)
+    pagamento = comprador.post(f"/minha-conta/arremates/{numero}/pagar", data={"csrf_token": CSRF, "forma": "pix"})
+    assert pagamento.status_code == 303
+    codigo = conexao.execute("SELECT codigo_retirada FROM transacoes WHERE leilao_id = ?", (numero,)).fetchone()[0]
+    conexao.close()
+
+    pagina.goto(f"{servidor['url']}/entrar")
+    pagina.fill("#email", ADMIN_LOGIN)
+    pagina.fill("#senha", ADMIN_SENHA)
+    pagina.click("form.formulario button[type=submit]")
+    pagina.wait_for_url("**/admin/leiloes")
+    card = pagina.locator(".entrega-pendente")
+    assert card.count() == 1
+    assert "Entrega pendente" in card.inner_text() and "Charizard" in card.inner_text()
+    assert codigo not in pagina.content()
+
+    card.click()
+    pagina.wait_for_url(f"**/admin/entregas/{numero}")
+    assert pagina.inner_text("#titulo-secao") == "Confirmar entrega" and codigo not in pagina.content()
+    pagina.fill("#codigo", "ZZZZ9999")
+    pagina.click(".entrega button[type=submit]")
+    pagina.locator(".aviso").filter(has_text="não confere com este arremate").wait_for()
+    assert pagina.url.endswith(f"/admin/entregas/{numero}")
+
+    pagina.set_viewport_size({"width": 360, "height": 800})
+    pagina.goto(f"{servidor['url']}/admin/leiloes")
+    assert pagina.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    pagina.click(".entrega-pendente")
+
+    pagina.fill("#codigo", codigo.lower())
+    assert pagina.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    pagina.click(".entrega button[type=submit]")
+    pagina.wait_for_url("**/admin/leiloes")
+    pagina.locator(".aviso").filter(has_text="Entrega de Charizard registrada").wait_for()
+    assert pagina.locator(".entrega-pendente").count() == 0
 
 
 def test_rn02_prorrogacao_atualiza_o_cronometro(servidor, pagina):

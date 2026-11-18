@@ -18,7 +18,7 @@ bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 @bp.context_processor
 def pendencias():
-    """O que espera uma ação do lojista, para os números das abas."""
+    """As pendências do lojista, para os números das abas."""
     conexao = obter_conexao()
 
     def contar(sql: str) -> int:
@@ -46,7 +46,8 @@ def inicio():
 @admin_obrigatorio
 def leiloes():
     _, repositorio = repositorios()
-    return render_template("admin/leiloes.html", aba="leiloes", pendentes=repositorio.pendentes())
+    return render_template("admin/leiloes.html", aba="leiloes", pendentes=repositorio.pendentes(),
+                           a_retirar=repositorio.com_transacao(StatusTransacao.PAGO))
 
 
 @bp.post("/leiloes/<int:numero>/aprovar")
@@ -76,26 +77,35 @@ def recusar(numero: int):
     return redirect(url_for(".leiloes"), code=303)
 
 
-@bp.route("/entregas", methods=["GET", "POST"])
+@bp.get("/entregas")
 @admin_obrigatorio
 def entregas():
+    _, repositorio = repositorios()
+    return render_template("admin/entregas.html", aba="entregas",
+                           a_retirar=repositorio.com_transacao(StatusTransacao.PAGO))
+
+
+@bp.route("/entregas/<int:numero>", methods=["GET", "POST"])
+@admin_obrigatorio
+def entrega(numero: int):
+    """RF12: confere o código de retirada e confirma a entrega."""
     clientes, repositorio = repositorios()
-    codigo = " ".join(request.values.get("codigo", "").split()).upper()
+    leilao = repositorio.por_id(numero)
+    if leilao is None or leilao.transacao is None:
+        abort(404)
     if request.method == "POST":
         try:
-            leilao = administracao.registrar_entrega(repositorio, clientes, codigo, agora())
+            leilao = administracao.registrar_entrega(repositorio, clientes, numero, request.form.get("codigo", ""),
+                                                     agora())
         except OperacaoRecusada as erro:
-            return _recusada(erro, url_for(".entregas", codigo=codigo or None))
+            return _recusada(erro, url_for(".entrega", numero=numero))
         arremate = leilao.transacao
         registrar_operacao("entrega e repasse", arremate.valorLiquido,
                            f"leilão {leilao.id}: {leilao.carta.nome}, repasse a {arremate.vendedor.nome}")
         flash(f"Entrega de {leilao.carta.nome} registrada. O repasse ao vendedor foi creditado na carteira dele.",
               "sucesso")
-        return redirect(url_for(".entregas"), code=303)
-    return render_template(
-        "admin/entregas.html", aba="entregas", codigo=codigo,
-        encontrado=repositorio.por_codigo_de_retirada(codigo) if codigo else None,
-        a_retirar=repositorio.com_transacao(StatusTransacao.PAGO))
+        return redirect(url_for(".leiloes"), code=303)
+    return render_template("admin/entrega.html", aba="entregas", leilao=leilao)
 
 
 @bp.get("/saques")

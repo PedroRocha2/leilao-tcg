@@ -3,9 +3,13 @@ from flask import Blueprint, abort, current_app, flash, redirect, render_templat
 from app.apresentacao import arremate, data_hora, meu_lance, perfil as itens_do_perfil
 from app.db import transacao
 from app.dominio.dinheiro import ValorMonetarioInvalido, formatar_reais, ler_reais
-from app.dominio.financeiro import OperacaoRecusada, StatusTransacao
-from app.pagamento import FORMAS_DE_PAGAMENTO, pagar_arremate
-from app.rotas.comum import agora, cliente_atual, login_obrigatorio, registrar_operacao, repositorios
+from app.dominio.financeiro import ZERO, OperacaoRecusada, StatusTransacao
+from app.mercado_pago import GatewayIndisponivel
+from app.pagamento import FORMAS_DE_PAGAMENTO, abrir_cobranca, conferir_cobranca, pagar_arremate
+from app.repositorios.cobrancas import StatusCobranca
+from app.rotas.comum import (agora, avisar_pagamento_confirmado, cliente_atual,
+                             cobrancas as repositorio_de_cobrancas, login_obrigatorio, registrar_operacao,
+                             registrar_pagamento_no_gateway, repositorios, url_publica)
 
 bp = Blueprint("minha_conta", __name__, url_prefix="/minha-conta")
 
@@ -44,7 +48,7 @@ def carteira():
 @bp.post("/carteira/saque")
 @login_obrigatorio
 def solicitar_saque():
-    """RF22: o cliente pede o saque do saldo, com a chave Pix de destino (RN16, RN19)."""
+    """RF22: saque do saldo para uma chave Pix (RN16, RN19)."""
     clientes, _ = repositorios()
     dados = {"valor": request.form.get("valor", ""), "chave_pix": request.form.get("chave_pix", "")}
     try:
@@ -82,38 +86,118 @@ def arremates():
     return render_template("minha_conta/arremates.html", aba="arremates", itens=itens)
 
 
+def _arremate_a_pagar(leilao_id: int):
+    """404 se o arremate não é do cliente logado."""
+    _, repositorio = repositorios()
+    leilao = repositorio.por_id(leilao_id)
+    if leilao is None or leilao.transacao is None or not leilao.transacao.comprador.ehOMesmo(cliente_atual()):
+        abort(404)
+    return leilao
+
+
 @bp.route("/arremates/<int:leilao_id>/pagar", methods=["GET", "POST"])
 @login_obrigatorio
 def pagar(leilao_id: int):
-    """RF11: paga o arremate com o saldo da carteira, por Pix ou cartão, ou com os dois."""
+    """RF11: com o saldo da carteira, pelo gateway ou com os dois."""
     clientes, repositorio = repositorios()
     cliente = cliente_atual()
-    leilao = repositorio.por_id(leilao_id)
-    if leilao is None or leilao.transacao is None or not leilao.transacao.comprador.ehOMesmo(cliente):
-        abort(404)
+    leilao = _arremate_a_pagar(leilao_id)
     transacao_do_leilao = leilao.transacao
     if transacao_do_leilao.status != StatusTransacao.AGUARDANDO_PAGAMENTO:
         return redirect(url_for(".arremates"))
 
-    erro = None
+    gateway = current_app.config["GATEWAY"]
+    cobrancas = repositorio_de_cobrancas()
+    erro, status = None, 200
     usar_saldo = request.form.get("usar_saldo") == "sim"
     forma = request.form.get("forma", FORMAS_DE_PAGAMENTO[0])
+    saldo = cliente.carteira.disponivel
     if request.method == "POST":
+        com_saldo = min(saldo, transacao_do_leilao.valor) if usar_saldo else ZERO
         try:
-            pago = pagar_arremate(repositorio, clientes, current_app.config["GATEWAY"], cliente.id, leilao_id,
-                                  usar_saldo, forma, agora())
+            if gateway.externo and com_saldo < transacao_do_leilao.valor:
+                retorno = url_publica("minha_conta.retorno_do_pagamento", leilao_id=leilao_id)
+                cobranca = abrir_cobranca(
+                    repositorio, cobrancas, gateway, cliente.id, leilao_id, usar_saldo, agora(), retorno=retorno,
+                    notificacao=url_publica("pagamentos.notificacao"))
+                registrar_operacao("cobrança aberta no gateway", cobranca.valor,
+                                   f"leilão {leilao_id}: {leilao.carta.nome} ({gateway.nome})")
+                if retorno:
+                    return redirect(cobranca.checkoutUrl, code=303)
+                # Sem endereço público, o gateway não tem como devolver o comprador: ele paga em outra aba.
+                flash(f"Cobrança aberta. Pague no {gateway.nome} e volte aqui para conferir o pagamento.", "info")
+                return redirect(url_for(".pagar", leilao_id=leilao_id), code=303)
+            pago = pagar_arremate(repositorio, clientes, gateway, cliente.id, leilao_id, usar_saldo, forma,
+                                  agora())
         except OperacaoRecusada as recusa:
-            erro = str(recusa)
+            erro, status = str(recusa), 422
+        except GatewayIndisponivel as falha:
+            current_app.logger.warning("Cobrança do leilão %s não aberta: %s", leilao_id, falha)
+            erro, status = f"Não foi possível falar com o {gateway.nome} agora. Tente de novo em instantes.", 502
         else:
             registrar_operacao("pagamento de arremate", pago.transacao.valor,
                                f"leilão {leilao_id}: {pago.carta.nome}")
+            avisar_pagamento_confirmado(pago)
             flash(f"Pagamento confirmado. Retire {pago.carta.nome} na loja com o código "
                   f"{pago.transacao.codigoRetirada}.", "sucesso")
             return redirect(url_for(".arremates"), code=303)
 
-    saldo = cliente.carteira.disponivel
+    pendentes = cobrancas.pendentes_do_leilao(leilao_id) if gateway.externo else []
     return render_template(
         "minha_conta/pagar.html", aba="arremates", item=arremate(leilao, agora()), erro=erro, forma=forma,
         formas=FORMAS_DE_PAGAMENTO, usar_saldo=usar_saldo, tem_saldo=saldo > 0, saldo=formatar_reais(saldo),
         saldo_cobre=saldo >= transacao_do_leilao.valor,
-        restante=formatar_reais(max(transacao_do_leilao.valor - saldo, 0))), 422 if erro else 200
+        restante=formatar_reais(max(transacao_do_leilao.valor - saldo, 0)),
+        gateway=gateway.nome if gateway.externo else None,
+        cobranca=({"url": pendentes[0].checkoutUrl, "valor": formatar_reais(pendentes[0].valor),
+                   "quando": data_hora(pendentes[0].dataCriacao)} if pendentes else None)), status
+
+
+def _conferir_cobrancas(leilao_id: int, referencia: str | None = None, pagamento_id: str | None = None):
+    clientes, repositorio = repositorios()
+    leilao = _arremate_a_pagar(leilao_id)
+    gateway = current_app.config["GATEWAY"]
+    if not gateway.externo:
+        abort(404)
+    cobrancas = repositorio_de_cobrancas()
+    try:
+        for cobranca in cobrancas.pendentes_do_leilao(leilao_id):
+            # O número que veio no endereço só vale para a cobrança daquela referência.
+            numero = pagamento_id if cobranca.referencia == referencia else None
+            resolvida = conferir_cobranca(repositorio, clientes, cobrancas, gateway, cobranca, agora(), numero)
+            if resolvida is not None:
+                registrar_pagamento_no_gateway(resolvida, leilao, gateway)
+                if resolvida.status == StatusCobranca.PAGA:
+                    avisar_pagamento_confirmado(leilao)
+    except GatewayIndisponivel as falha:
+        current_app.logger.warning("Cobrança do leilão %s não conferida: %s", leilao_id, falha)
+        flash(f"Não foi possível consultar o {gateway.nome} agora. Tente conferir de novo em instantes.", "info")
+        return redirect(url_for(".pagar", leilao_id=leilao_id), code=303)
+
+    atual = repositorio.por_id(leilao_id)
+    if atual.transacao.status == StatusTransacao.PAGO:
+        flash(f"Pagamento confirmado. Retire {atual.carta.nome} na loja com o código "
+              f"{atual.transacao.codigoRetirada}.", "sucesso")
+        return redirect(url_for(".arremates"), code=303)
+    if atual.transacao.status != StatusTransacao.AGUARDANDO_PAGAMENTO:
+        flash("Este arremate não está mais aguardando pagamento. Se você pagou depois do prazo, o valor foi "
+              "creditado na sua carteira.", "info")
+        return redirect(url_for(".carteira"), code=303)
+    flash(f"O {gateway.nome} ainda não confirmou o pagamento. O Pix costuma ser confirmado em instantes; "
+          "confira de novo daqui a pouco.", "info")
+    return redirect(url_for(".pagar", leilao_id=leilao_id), code=303)
+
+
+@bp.get("/arremates/<int:leilao_id>/pagamento")
+@login_obrigatorio
+def retorno_do_pagamento(leilao_id: int):
+    """O que vem no endereço é só uma pista: vale a resposta da API."""
+    numero = request.args.get("payment_id") or request.args.get("collection_id") or ""
+    return _conferir_cobrancas(leilao_id, request.args.get("external_reference"),
+                               numero if numero.isdigit() else None)
+
+
+@bp.post("/arremates/<int:leilao_id>/pagamento")
+@login_obrigatorio
+def conferir_pagamento(leilao_id: int):
+    return _conferir_cobrancas(leilao_id)

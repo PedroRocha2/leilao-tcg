@@ -15,14 +15,13 @@
     </div>
   </div>
 
-  <nav class="destaque__jogos" aria-labelledby="titulo-jogos">
-    <h2 class="destaque__rotulo" id="titulo-jogos">Escolha seu jogo</h2>
+  <nav class="destaque__jogos" aria-label="Jogos">
     <ul class="jogos">
       {% for j in jogos %}
       <li>
         <a class="jogo-card" href="{{ url_for('leiloes.jogo', slug=j.slug) }}">
           {% if j.capa %}<img class="jogo-card__capa" src="{{ url_for('static', filename=j.capa) }}" alt="" width="480" height="480" decoding="async">{% endif %}
-          <span class="jogo-card__nome">{{ j.nome }}</span>
+          <span class="jogo-card__nome">{% if j.logo %}<img class="jogo-card__logo" src="{{ url_for('static', filename=j.logo) }}" alt="{{ j.nome }}" decoding="async">{% else %}{{ j.nome }}{% endif %}</span>
           <span class="jogo-card__qtd">{{ j.total }} {{ "leilão ativo" if j.total == 1 else "leilões ativos" }}</span>
         </a>
       </li>

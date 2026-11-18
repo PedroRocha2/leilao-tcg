@@ -1,17 +1,21 @@
-"""Catálogo de cartas: nome, código, edição, especificações, imagem e preço, vindos da API pública de cada jogo."""
+"""Catálogo de cartas pelas APIs públicas de cada jogo."""
+import re
 from collections import OrderedDict
 from dataclasses import replace
 from threading import Lock
 
-from app.catalogo.base import (LIMITE_DE_RESULTADOS, CartaDoCatalogo, CatalogoIndisponivel, Memoria,
-                               PrecoMedio)
+from collections.abc import Iterable, Mapping, Sequence
+
+from app.catalogo.base import (LIMITE_DE_RESULTADOS, CartaDoCatalogo, CatalogoIndisponivel, Filtro, Memoria,
+                               PrecoMedio, atributos)
 from app.catalogo.http import EXTENSOES, Transporte
 from app.catalogo.magic import Scryfall
 from app.catalogo.one_piece import Optcg
 from app.catalogo.pokemon import Tcgdex
 from app.catalogo.yugioh import Ygoprodeck
 
-__all__ = ["EXTENSOES", "CartaDoCatalogo", "Catalogo", "CatalogoIndisponivel", "PrecoMedio", "criar_catalogo"]
+__all__ = ["EXTENSOES", "CartaDoCatalogo", "Catalogo", "CatalogoIndisponivel", "Filtro", "PrecoMedio",
+           "atributos_da_descricao", "criar_catalogo"]
 
 _CARTAS_LEMBRADAS = 2000
 
@@ -20,7 +24,7 @@ class Catalogo:
     def __init__(self, transporte, fontes):
         self.transporte = transporte
         self._fontes = {fonte.jogo: fonte for fonte in fontes}
-        # As cartas já vistas ficam na memória: escolher uma carta da busca não consulta a API de novo.
+        # Escolher uma carta da busca não consulta a API de novo.
         self._cartas: OrderedDict[tuple[str, str], CartaDoCatalogo] = OrderedDict()
         self._sugestoes = Memoria()
         self._trava = Lock()
@@ -30,15 +34,47 @@ class Catalogo:
         return list(self._fontes)
 
     def exemplo_de_codigo(self, jogo: str) -> str | None:
-        """Um código de carta, nos jogos em que a busca também acha pelo código impresso na carta."""
+        """None nos jogos cuja busca não acha pelo código impresso."""
         return getattr(self._fontes[jogo], "exemplo_de_codigo", None)
 
-    def buscar(self, jogo: str, texto: str) -> list[CartaDoCatalogo]:
-        """As cartas do jogo com `texto` no nome, ou no código quando o catálogo do jogo busca por ele."""
-        return self._guardar(self._consultar(self._fontes[jogo].buscar, texto))
+    def filtros(self, jogo: str) -> tuple[Filtro, ...]:
+        return getattr(self._fontes.get(jogo), "filtros", ())
+
+    def filtros_validos(self, jogo: str, escolhidos: Mapping[str, Iterable[str] | str]) -> dict[str, list[str]]:
+        validos = {}
+        for filtro in self.filtros(jogo):
+            pedidos = escolhidos.get(filtro.chave) or ()
+            pedidos = [pedidos] if isinstance(pedidos, str) else pedidos
+            if valores := [valor for valor in dict.fromkeys(pedidos) if valor in filtro.opcoes]:
+                validos[filtro.chave] = valores
+        return validos
+
+    def atributos(self, jogo: str, especificacoes: Iterable[tuple[str, str]]) -> tuple[tuple[str, str], ...]:
+        fonte = self._fontes.get(jogo)
+        ficha = dict(especificacoes)
+        if hasattr(fonte, "completar"):
+            ficha = fonte.completar(ficha)
+        return atributos(self.filtros(jogo), ficha.items())
+
+    def buscar(self, jogo: str, texto: str,
+               filtros: Mapping[str, Sequence[str] | str] | None = None) -> list[CartaDoCatalogo]:
+        """Dentro de um filtro vale qualquer opção; entre filtros, a carta precisa atender a todos."""
+        fonte = self._fontes[jogo]
+        escolhidos = self.filtros_validos(jogo, filtros or {})
+        if not escolhidos:
+            return self._guardar(self._consultar(fonte.buscar, texto))
+        cartas = self._consultar(fonte.buscar, texto, escolhidos)
+        # As APIs nem sempre aplicam todos os filtros juntos: a loja confere cada carta.
+        return self._guardar([carta for carta in cartas if self._atende(jogo, carta, escolhidos)])
+
+    def _atende(self, jogo: str, carta: CartaDoCatalogo, escolhidos: Mapping[str, Sequence[str]]) -> bool:
+        da_carta: dict[str, set[str]] = {}
+        for chave, valor in self.atributos(jogo, carta.especificacoes):
+            da_carta.setdefault(chave, set()).add(valor)
+        return all(da_carta.get(chave, set()) & set(valores) for chave, valores in escolhidos.items())
 
     def sugestoes(self, jogo: str) -> list[CartaDoCatalogo]:
-        """As cartas mostradas antes de o vendedor filtrar: os lançamentos mais recentes do jogo."""
+        """Os lançamentos mais recentes, mostrados antes de o vendedor buscar."""
         fonte = self._fontes[jogo]
         return self._sugestoes.obter(jogo, lambda: self._guardar(self._consultar(fonte.sugestoes)))
 
@@ -52,11 +88,10 @@ class Catalogo:
         return carta
 
     def preco(self, carta: CartaDoCatalogo) -> PrecoMedio | None:
-        """O valor médio de mercado da carta, ou None quando o catálogo do jogo não informa."""
         fonte = self._fontes.get(carta.jogo)
         if carta.preco is not None or not hasattr(fonte, "preco"):
             return carta.preco
-        # O TCGdex só informa o preço na ficha da carta: a consulta é feita quando o vendedor escolhe a carta.
+        # O TCGdex só informa o preço na ficha da carta.
         preco = self._consultar(fonte.preco, carta.id)
         if preco is not None:
             self._lembrar(replace(carta, preco=preco))
@@ -83,6 +118,18 @@ class Catalogo:
             self._cartas.move_to_end((carta.jogo, carta.id))
             while len(self._cartas) > _CARTAS_LEMBRADAS:
                 self._cartas.popitem(last=False)
+
+
+# A descrição sugerida é "Rótulo: valor; Rótulo: valor".
+_ESPECIFICACAO = re.compile(r"(?:^|;\s*)([^:;.]{2,30}):\s*([^;]+?)\s*(?=;|\.(?:\s|$)|$)")
+
+
+def atributos_da_descricao(jogo: str, descricao: str) -> tuple[tuple[str, str], ...]:
+    """Atributos das cartas anteriores à versão 6, lidos da descrição (que o vendedor pode ter mudado)."""
+    fontes = {fonte.jogo: fonte for fonte in (Tcgdex, Scryfall, Ygoprodeck, Optcg)}
+    if jogo not in fontes:
+        return ()
+    return Catalogo(None, [fontes[jogo](None)]).atributos(jogo, _ESPECIFICACAO.findall(descricao or ""))
 
 
 def criar_catalogo(user_agent: str, transporte=None) -> Catalogo:

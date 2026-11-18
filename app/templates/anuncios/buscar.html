@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_icones.html" as icone %}
+{% from "_filtros.html" import painel_de_filtros %}
 {% block titulo %}Criar leilão{% endblock %}
 {% block descricao %}Escolha a sua carta no catálogo do jogo para criar um leilão.{% endblock %}
 {% block conteudo %}
@@ -12,7 +13,6 @@
 
 <div class="cabecalho">
   <h1>Criar leilão</h1>
-  <p class="cabecalho__texto">Escolha o jogo e a sua carta. O nome, o código, as especificações, a imagem e o valor médio de mercado vêm do catálogo do jogo.</p>
 </div>
 
 <nav class="chips" aria-label="Jogo da carta">
@@ -23,29 +23,36 @@
   </ul>
 </nav>
 
-<form class="busca" method="get" action="{{ url_for('anuncios.novo') }}" role="search" data-filtro-cartas>
+<form class="jogo{% if filtros %} jogo--com-filtros{% endif %} criar" method="get" action="{{ url_for('anuncios.novo') }}" role="search" data-filtro-cartas>
   <input type="hidden" name="jogo" value="{{ jogo.slug }}">
-  <label for="q">Filtrar as cartas de {{ jogo.nome }}</label>
-  <div class="busca__linha">
-    <input id="q" name="q" type="search" value="{{ q }}" autocomplete="off" spellcheck="false" enterkeyhint="search"
-           placeholder="{{ 'Nome ou código…' if exemplo else 'Nome da carta…' }}" minlength="2" aria-describedby="ajuda-filtro"
-           {% if not cartas %} autofocus{% endif %}>
-    <button class="botao botao--primario" type="submit">Filtrar</button>
-  </div>
-  <p class="campo__ajuda" id="ajuda-filtro">Use o nome em inglês, como está na carta{% if exemplo %}, ou o código impresso nela, como <span translate="no">{{ exemplo }}</span>{% endif %}.</p>
-  <p class="vh" role="status" data-filtro-status></p>
-</form>
+  {% if filtros %}
+  <aside class="jogo__filtros" aria-label="Filtros de {{ jogo.nome }}">
+    {{ painel_de_filtros(filtros, limpar=url_for('anuncios.novo', jogo=jogo.slug, q=q or none) if filtrado else none) }}
+  </aside>
+  {% endif %}
+  <div class="jogo__leiloes">
+    <div class="busca">
+      <label for="q">Filtrar as cartas de {{ jogo.nome }}</label>
+      <div class="busca__linha">
+        <input id="q" name="q" type="search" value="{{ q }}" autocomplete="off" spellcheck="false" enterkeyhint="search"
+               placeholder="{{ 'Nome ou código…' if exemplo else 'Nome da carta…' }}" minlength="2" aria-describedby="ajuda-filtro"
+               {% if not cartas %} autofocus{% endif %}>
+        <button class="botao botao--primario" type="submit">Filtrar</button>
+      </div>
+      <p class="campo__ajuda" id="ajuda-filtro">Use o nome em inglês, como está na carta{% if exemplo %}, ou o código impresso nela, como <span translate="no">{{ exemplo }}</span>{% endif %}.{% if filtros %} Ou marque as características da carta nos filtros, com ou sem o nome.{% endif %}</p>
+      <p class="vh" role="status" data-filtro-status></p>
+    </div>
 
-<div class="resultados" data-resultados>
+    <div class="resultados" data-resultados>
   {% if erro %}
   <p class="campo__erro" id="erro-busca" role="alert">{{ icone.alerta() }}<span>{{ erro }}</span></p>
   {% elif cartas %}
-  {% if q %}
+  {% if q or filtrado %}
   <h2 class="subtitulo" id="titulo-resultados" data-resumo>{{ cartas|length }} {{ "carta encontrada" if cartas|length == 1 else "cartas encontradas" }} em {{ jogo.nome }}</h2>
-  {% if no_limite %}<p class="busca__nota">Estas são as primeiras {{ cartas|length }}. Se a sua não está aqui, digite mais do nome{% if exemplo %} ou do código{% endif %}.</p>{% endif %}
+  {% if no_limite %}<p class="busca__nota">Estas são as primeiras {{ cartas|length }}. Se a sua não está aqui, digite mais do nome{% if exemplo %} ou do código{% endif %}{% if filtros %}, ou escolha mais filtros{% endif %}.</p>{% endif %}
   {% else %}
   <h2 class="subtitulo" id="titulo-resultados" data-resumo>Sugestões de {{ jogo.nome }}</h2>
-  <p class="busca__nota">Lançamentos recentes do jogo. Se a sua carta não está aqui, use o filtro acima.</p>
+  <p class="busca__nota">Lançamentos recentes do jogo.</p>
   {% endif %}
   <ul class="grade" aria-labelledby="titulo-resultados">
     {% for c in cartas %}
@@ -60,6 +67,11 @@
     </li>
     {% endfor %}
   </ul>
+  {% elif filtrado %}
+  <div class="vazio">
+    <p class="vazio__titulo" data-resumo>Nenhuma carta de {{ jogo.nome }} com esses filtros{% if q %} e “{{ q }}” no nome{% if exemplo %} ou no código{% endif %}{% endif %}.</p>
+    <p>Tire algum filtro: a carta precisa ter todas as características escolhidas.{% if q %} Confira também a grafia do nome, em inglês, como está impresso na carta.{% endif %}</p>
+  </div>
   {% elif q %}
   <div class="vazio">
     <p class="vazio__titulo" data-resumo>Nenhuma carta de {{ jogo.nome }} com “{{ q }}” no nome{% if exemplo %} ou no código{% endif %}.</p>
@@ -72,4 +84,6 @@
   </div>
   {% endif %}
 </div>
+  </div>
+</form>
 {% endblock %}

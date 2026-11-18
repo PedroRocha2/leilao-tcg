@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_leiloes.html" import lista_de_leiloes, resumo_dos_leiloes %}
+{% from "_filtros.html" import painel_de_filtros %}
 {% block titulo %}Leilões de {{ jogo.nome }}{% endblock %}
 {% block descricao %}Cartas de {{ jogo.nome }} recebendo lances agora, com o lance atual e o tempo restante de cada leilão.{% endblock %}
 {% block conteudo %}
@@ -12,14 +13,20 @@
 
 <div class="cabecalho">
   <h1>{{ jogo.nome }}</h1>
-  <p class="cabecalho__texto">{{ resumo_dos_leiloes(cartoes, jogo, q) }}</p>
+  <p class="cabecalho__texto" data-resultados><span data-resumo>{{ resumo_dos_leiloes(cartoes, jogo, q, filtrado) }}</span></p>
 </div>
 
-{# O painel de filtros próprio do jogo entra aqui: o template registrado em FILTROS_POR_JOGO (rotas/leiloes.py). #}
+{# Sem JavaScript, o botão Aplicar envia o formulário. #}
 <div class="jogo{% if filtros %} jogo--com-filtros{% endif %}">
   {% if filtros %}
-  <aside class="jogo__filtros" aria-label="Filtros de {{ jogo.nome }}">{% include filtros %}</aside>
+  <aside class="jogo__filtros" aria-label="Filtros de {{ jogo.nome }}">
+    <form method="get" action="{{ url_for('leiloes.jogo', slug=jogo.slug) }}" data-filtro-cartas>
+      {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+      {{ painel_de_filtros(filtros, limpar=url_for('leiloes.jogo', slug=jogo.slug, q=q or none) if filtrado else none) }}
+      <p class="vh" role="status" data-filtro-status></p>
+    </form>
+  </aside>
   {% endif %}
-  <div class="jogo__leiloes">{{ lista_de_leiloes(cartoes, jogo, q) }}</div>
+  <div class="jogo__leiloes resultados" data-resultados>{{ lista_de_leiloes(cartoes, jogo, q, filtrado=filtrado) }}</div>
 </div>
 {% endblock %}

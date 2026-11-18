@@ -6,17 +6,17 @@
     },
     "cronometro": {
       "esquerda": 36,
-      "direita": 159.1875,
-      "largura": 123.1875,
-      "altura": 29,
-      "fonte": 24
+      "direita": 143.796875,
+      "largura": 107.796875,
+      "altura": 25,
+      "fonte": 21
     },
     "lance_atual": {
       "esquerda": 36,
       "direita": 324,
       "largura": 288,
-      "altura": 33.59375,
-      "fonte": 32
+      "altura": 29.390625,
+      "fonte": 28
     },
     "campo": {
       "esquerda": 76.453125,
@@ -88,17 +88,17 @@
     },
     "cronometro": {
       "esquerda": 36,
-      "direita": 159.1875,
-      "largura": 123.1875,
-      "altura": 29,
-      "fonte": 24
+      "direita": 143.796875,
+      "largura": 107.796875,
+      "altura": 25,
+      "fonte": 21
     },
     "lance_atual": {
       "esquerda": 36,
       "direita": 354,
       "largura": 318,
-      "altura": 33.59375,
-      "fonte": 32
+      "altura": 29.390625,
+      "fonte": 28
     },
     "campo": {
       "esquerda": 76.453125,
@@ -170,17 +170,17 @@
     },
     "cronometro": {
       "esquerda": 62.71875,
-      "direita": 185.90625,
-      "largura": 123.1875,
-      "altura": 29,
-      "fonte": 24
+      "direita": 170.515625,
+      "largura": 107.796875,
+      "altura": 25,
+      "fonte": 21
     },
     "lance_atual": {
       "esquerda": 62.71875,
       "direita": 638.71875,
       "largura": 576,
-      "altura": 40.359375,
-      "fonte": 38.432
+      "altura": 34.671875,
+      "fonte": 33.024
     },
     "campo": {
       "esquerda": 103.171875,

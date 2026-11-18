@@ -1,5 +1,6 @@
 import sqlite3
 from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
 
@@ -11,13 +12,12 @@ from app.repositorios.clientes import RepositorioClientes
 
 _ABERTOS = "l.status = 'ativo' AND l.data_inicio <= ? AND l.data_fim_prevista > ?"
 
-# O código da carta é o que a edição traz depois do último parêntese: "Base Set (4/102)" -> "4/102)".
-# O nome da coleção fica fora da busca: "dragon" não acha as cartas da "Legend of Blue Eyes White Dragon".
+# O código vem depois do último parêntese da edição ("Base Set (4/102)" -> "4/102)"), sem o nome da coleção.
 _CODIGO = "substr(c.edicao, length(rtrim(c.edicao, replace(c.edicao, '(', ''))) + 1)"
 
 
 def _literal(texto: str) -> str:
-    """O texto como ele é dentro de um LIKE: % e _ digitados não viram curingas."""
+    """% e _ digitados não viram curingas."""
     return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
@@ -35,23 +35,40 @@ class RepositorioLeiloes:
         return jogo
 
     def jogo(self, nome: str) -> Jogo:
-        """O jogo com este nome; cadastra na primeira carta de um jogo novo."""
+        """Cadastra o jogo na primeira carta dele."""
         linha = self.conexao.execute("SELECT id, nome FROM jogos WHERE nome = ?", (nome,)).fetchone()
         return Jogo(nome=linha["nome"], id=linha["id"]) if linha else self.adicionar_jogo(Jogo(nome))
 
-    def ativos(self, agora: datetime, jogo_id: int | None = None, texto: str = "") -> list[Leilao]:
-        """Os leilões recebendo lances. `texto` busca no nome da carta e no código dela."""
+    def ativos(self, agora: datetime, jogo_id: int | None = None, texto: str = "",
+               atributos: Mapping[str, Sequence[str]] | None = None) -> list[Leilao]:
+        """`atributos`: {filtro: valores aceitos}; qualquer valor dentro de um filtro, todos os filtros (RN23)."""
         sql = f"SELECT l.id FROM leiloes l JOIN cartas c ON c.id = l.carta_id WHERE {_ABERTOS}"
         parametros: list = [para_texto(agora)] * 2
         if jogo_id is not None:
             sql += " AND c.jogo_id = ?"
             parametros.append(jogo_id)
-        # Cada palavra precisa aparecer no nome ou no código: "dragon 156" acha o Shivan Dragon (156).
+        for chave, valores in (atributos or {}).items():
+            if valores:
+                sql += (" AND EXISTS (SELECT 1 FROM carta_atributos a WHERE a.carta_id = c.id AND a.chave = ?"
+                        f" AND a.valor IN ({marcadores(len(valores))}))")
+                parametros += [chave, *valores]
         for palavra in texto.split():
             sql += rf" AND (c.nome LIKE ? ESCAPE '\' OR {_CODIGO} LIKE ? ESCAPE '\')"
             parametros += [f"%{_literal(palavra)}%"] * 2
         sql += " ORDER BY l.data_fim_prevista, l.id"
         return self._carregar([linha["id"] for linha in self.conexao.execute(sql, parametros)])
+
+    def atributos_dos_ativos(self, agora: datetime, jogo_id: int) -> dict[str, dict[str, int]]:
+        """{filtro: {valor: total}}."""
+        linhas = self.conexao.execute(
+            f"""SELECT a.chave, a.valor, COUNT(*) AS total
+                  FROM leiloes l JOIN cartas c ON c.id = l.carta_id JOIN carta_atributos a ON a.carta_id = c.id
+                 WHERE {_ABERTOS} AND c.jogo_id = ? GROUP BY a.chave, a.valor""",
+            [para_texto(agora), para_texto(agora), jogo_id])
+        totais: dict[str, dict[str, int]] = defaultdict(dict)
+        for linha in linhas:
+            totais[linha["chave"]][linha["valor"]] = linha["total"]
+        return dict(totais)
 
     def ativos_por_jogo(self, agora: datetime) -> dict[int, int]:
         linhas = self.conexao.execute(
@@ -114,7 +131,7 @@ class RepositorioLeiloes:
             "SELECT id FROM leiloes ORDER BY id DESC")])
 
     def finalizados(self) -> list[Leilao]:
-        """RF16: leilões encerrados ou cancelados, do mais recente para o mais antigo."""
+        """RF16."""
         return self._carregar([linha["id"] for linha in self.conexao.execute(
             "SELECT id FROM leiloes WHERE status IN ('encerrado', 'cancelado')"
             " ORDER BY COALESCE(data_fim_real, data_fim_prevista) DESC, id DESC")])
@@ -125,11 +142,6 @@ class RepositorioLeiloes:
             sql, parametros = sql + " WHERE status = ?", [status]
         return self._carregar([linha["leilao_id"] for linha in self.conexao.execute(
             sql + " ORDER BY data_hora DESC, id DESC", parametros)])
-
-    def por_codigo_de_retirada(self, codigo: str) -> Leilao | None:
-        linha = self.conexao.execute(
-            "SELECT leilao_id FROM transacoes WHERE codigo_retirada = ?", (codigo.strip().upper(),)).fetchone()
-        return self.por_id(linha["leilao_id"]) if linha else None
 
     def com_pagamento_vencido(self, agora: datetime) -> list[Leilao]:
         linhas = self.conexao.execute(
@@ -160,6 +172,12 @@ class RepositorioLeiloes:
             " ORDER BY carta_id, ordem", carta_ids,
         ):
             fotos[linha["carta_id"]].append(linha["url"])
+        atributos = defaultdict(list)
+        for linha in self.conexao.execute(
+            f"SELECT carta_id, chave, valor FROM carta_atributos WHERE carta_id IN ({marcadores(len(carta_ids))})"
+            " ORDER BY carta_id, rowid", carta_ids,
+        ):
+            atributos[linha["carta_id"]].append((linha["chave"], linha["valor"]))
         lances = defaultdict(list)
         for linha in self.conexao.execute(
             f"SELECT * FROM lances WHERE leilao_id IN ({marcas}) ORDER BY data_hora, id", ids
@@ -185,7 +203,7 @@ class RepositorioLeiloes:
                 nome=dados_carta["nome"], jogo=jogo, edicao=dados_carta["edicao"],
                 condicao=dados_carta["condicao"], descricao=dados_carta["descricao"],
                 vendedor=clientes[dados_carta["vendedor_id"]], status=dados_carta["status"],
-                id=dados_carta["id"],
+                atributos=atributos[dados_carta["id"]], id=dados_carta["id"],
             )
             for url in fotos[carta.id]:
                 carta.adicionarFoto(url)
@@ -239,6 +257,7 @@ class RepositorioLeiloes:
                 "INSERT INTO carta_fotos (carta_id, ordem, url) VALUES (?, ?, ?)",
                 [(carta.id, ordem, url) for ordem, url in enumerate(carta.fotos, start=1)],
             )
+            self.salvar_atributos(carta)
             leilao.id = self.conexao.execute(
                 "INSERT INTO leiloes (carta_id, lance_inicial_centavos, incremento_minimo_centavos,"
                 " data_inicio, data_fim_prevista, data_fim_real, status, taxa_percentual)"
@@ -287,7 +306,6 @@ class RepositorioLeiloes:
                 ).lastrowid
 
     def salvar_transacao(self, leilao: Leilao) -> None:
-        """Grava o andamento do arremate (pagamento, entrega, expiração) e o status da carta."""
         arremate = leilao.transacao
         with transacao(self.conexao):
             self.conexao.execute(
@@ -301,14 +319,21 @@ class RepositorioLeiloes:
             self.conexao.execute(
                 "UPDATE cartas SET status = ? WHERE id = ?", (str(leilao.carta.status), leilao.carta.id))
 
+    def salvar_atributos(self, carta: Carta) -> None:
+        with transacao(self.conexao):
+            self.conexao.execute("DELETE FROM carta_atributos WHERE carta_id = ?", (carta.id,))
+            self.conexao.executemany(
+                "INSERT OR IGNORE INTO carta_atributos (carta_id, chave, valor) VALUES (?, ?, ?)",
+                [(carta.id, chave, valor) for chave, valor in carta.atributos])
+
     def salvar_carta(self, carta: Carta) -> None:
-        """RF04: grava os dados da carta que o administrador corrigiu."""
+        """RF04."""
         self.conexao.execute(
             "UPDATE cartas SET nome = ?, jogo_id = ?, edicao = ?, condicao = ? WHERE id = ?",
             (carta.nome, carta.jogo.id, carta.edicao, carta.condicao, carta.id))
 
     def remover(self, leilao: Leilao) -> None:
-        """RF04: apaga o cadastro da carta e o leilão dela. Só serve para leilão sem lances."""
+        """RF04. Só para leilão sem lances."""
         with transacao(self.conexao):
             self.conexao.execute("DELETE FROM leiloes WHERE id = ?", (leilao.id,))
             self.conexao.execute("DELETE FROM cartas WHERE id = ?", (leilao.carta.id,))

@@ -1,0 +1,36 @@
+{% extends "admin/_layout.html" %}
+{% import "_icones.html" as icone %}
+{% block titulo %}Entrega de {{ leilao.carta.nome }} · Administração{% endblock %}
+{% block secao %}
+{% set arremate = leilao.transacao %}
+<p class="voltar"><a href="{{ url_for('admin.entregas') }}">Todas as entregas</a></p>
+<h2 id="titulo-secao">Confirmar entrega</h2>
+<div class="saldo entrega">
+  <p class="rotulo">Leilão {{ leilao.id }}</p>
+  <p class="entrega__carta" translate="no">{{ leilao.carta.nome }} <span aria-hidden="true">·</span> {{ leilao.carta.edicao }}</p>
+  <dl class="ficha">
+    <div><dt>Comprador</dt><dd>{{ arremate.comprador.nome }}</dd></div>
+    <div><dt>CPF do comprador</dt><dd>{{ arremate.comprador.cpf|cpf }}</dd></div>
+    <div><dt>Valor do arremate</dt><dd>{{ arremate.valor|reais }}</dd></div>
+    <div><dt>Taxa da loja</dt><dd>{{ arremate.taxa|reais }}</dd></div>
+    <div><dt>Repasse ao vendedor ({{ arremate.vendedor.nome }})</dt><dd>{{ arremate.valorLiquido|reais }}</dd></div>
+    <div><dt>Situação</dt><dd>{{ arremate.status|capitalize }}</dd></div>
+  </dl>
+  {% if arremate.status == "pago" %}
+  <form class="campo" method="post" action="{{ url_for('admin.entrega', numero=leilao.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="codigo">Código de retirada apresentado pelo comprador</label>
+    <input id="codigo" name="codigo" type="text" autocomplete="off" spellcheck="false" autocapitalize="characters"
+           maxlength="12" placeholder="8 letras e números…" required>
+    <p class="campo__ajuda">O código fica com o comprador, em Minha Conta › Arremates. A entrega só é registrada se ele conferir com este arremate.</p>
+    <button class="botao botao--primario" type="submit">Confirmar entrega e repassar ao vendedor</button>
+  </form>
+  {% elif arremate.status == "entregue" %}
+  <p class="lance__aviso">{{ icone.ok() }}<span>Carta entregue em {{ arremate.dataEntrega|data_hora }}. O repasse já foi creditado.</span></p>
+  {% elif arremate.status == "aguardando pagamento" %}
+  <p class="lance__aviso">{{ icone.alerta() }}<span>Este arremate ainda não foi pago. A carta só pode ser entregue depois do pagamento.</span></p>
+  {% else %}
+  <p class="lance__aviso">{{ icone.alerta() }}<span>Este arremate não foi pago no prazo. A carta voltou para o vendedor.</span></p>
+  {% endif %}
+</div>
+{% endblock %}

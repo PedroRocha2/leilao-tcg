@@ -1,8 +1,10 @@
-"""Pokémon pelo TCGdex (https://tcgdex.dev): as cartas pela API GraphQL e o preço pela ficha da carta."""
+"""Pokémon pelo TCGdex (https://tcgdex.dev): cartas pelo GraphQL, preço pela ficha da carta."""
 import re
-from urllib.parse import quote
+from collections.abc import Mapping, Sequence
+from urllib.parse import quote, urlencode
 
-from app.catalogo.base import LIMITE_DE_RESULTADOS, CartaDoCatalogo, Memoria, PrecoMedio, especificacoes, preco_medio
+from app.catalogo.base import (LIMITE_DE_RESULTADOS, CartaDoCatalogo, Filtro, Memoria, PrecoMedio, especificacoes,
+                               por_virgula, preco_medio)
 
 API = "https://api.tcgdex.net/v2/graphql"
 FICHA = "https://api.tcgdex.net/v2/en/cards"
@@ -16,40 +18,76 @@ def _consulta(filtro: str, variavel: str, tipo: str, quantas: int) -> str:
 
 
 _BUSCA = _consulta("name", "nome", "String", LIMITE_DE_RESULTADOS)
-# Os filtros do TCGdex acham o texto em qualquer parte do campo: "90" traz 090, 190 e SM90, e "30th-" traz
-# também a coleção "30th-c". Por isso vem uma página maior, e sobra o que serve.
+# O TCGdex acha o texto em qualquer parte ("90" traz 190 e SM90): vem uma página maior.
 _POR_NUMERO = _consulta("localId", "numero", "String", 300)
 _DA_COLECAO = _consulta("id", "colecao", "ID", 2 * LIMITE_DE_RESULTADOS)
 _CARTA = f"query($id: ID!) {{ card(id: $id) {{ {_CAMPOS} }} }}"
 _COLECOES = "{ sets { id releaseDate serie { id } cardCount { official } } }"
 
 _CATEGORIAS = {"Pokemon": "Pokémon", "Trainer": "Treinador", "Energy": "Energia"}
-# O código impresso na carta: número, barra e total da coleção (90/112, TG05/TG30), ou só o número (SWSH001).
+_TIPOS = ("Colorless", "Darkness", "Dragon", "Fairy", "Fighting", "Fire", "Grass", "Lightning", "Metal", "Psychic",
+          "Water")
+_ESTAGIOS = ("Basic", "Stage1", "Stage2", "Baby", "BREAK", "LEVEL-UP", "MEGA", "RESTORED", "V-UNION", "VMAX", "VSTAR")
+# Só as de cartas físicas (sem o Pokémon TCG Pocket).
+_RARIDADES = (
+    "Common", "Uncommon", "Rare", "Rare Holo", "Holo Rare", "Holo Rare V", "Holo Rare VMAX", "Holo Rare VSTAR",
+    "Double rare", "Ultra Rare", "Illustration rare", "Special illustration rare", "Hyper rare", "Secret Rare",
+    "Shiny rare", "Shiny rare V", "Shiny rare VMAX", "Shiny Ultra Rare", "Amazing Rare", "Radiant Rare",
+    "ACE SPEC Rare", "Rare PRIME", "Rare Holo LV.X", "LEGEND", "Full Art Trainer", "Classic Collection",
+    "Black White Rare", "Mega Attack Rare", "Mega Hyper Rare", "Futuristic Rare", "RGB Rare", "Pikachu Rare", "Promo")
+# "eq:" pede o valor exato ("Rare" traria "Holo Rare"); "|" separa valores como "ou".
+_NA_API = {"categoria": ("category", "eq:"), "tipo": ("types", ""), "estagio": ("stage", "eq:"),
+           "raridade": ("rarity", "eq:")}
+_CATEGORIAS_NA_API = {nome: chave for chave, nome in _CATEGORIAS.items()}
+# Código impresso: 90/112, TG05/TG30 ou SWSH001.
 _CODIGO = re.compile(r"^([A-Za-z]{0,5}\d{1,4}[A-Za-z]?)\s*(?:/\s*([A-Za-z]{0,5}\d{0,4}))?$")
 _POCKET = "tcgp"
 _COLECOES_RECENTES = 3
 _COLECOES_POR_CONSULTA = 20
-# O TCGplayer separa o preço por acabamento: vale o da carta comum e, se ela não existe, o da holográfica.
+# Em ordem de preferência: a carta comum antes da holográfica.
 _ACABAMENTOS = ("normal", "holofoil", "reverse-holofoil")
 
 
 class Tcgdex:
     jogo = "Pokémon"
     exemplo_de_codigo = "90/112"
+    filtros = (
+        Filtro("categoria", "Categoria", tuple(_CATEGORIAS.values()), ficha="Categoria"),
+        Filtro("tipo", "Tipo", _TIPOS, ficha="Tipo", separar=por_virgula),
+        Filtro("estagio", "Estágio", _ESTAGIOS, ficha="Estágio"),
+        Filtro("raridade", "Raridade", _RARIDADES, ficha="Raridade"),
+    )
 
     def __init__(self, transporte):
         self.transporte = transporte
         self._memoria = Memoria()
 
-    def buscar(self, texto: str) -> list[CartaDoCatalogo]:
+    def buscar(self, texto: str, filtros: Mapping[str, Sequence[str]] | None = None) -> list[CartaDoCatalogo]:
         codigo = _CODIGO.match(texto)
         if codigo:
             return self._por_codigo(codigo[1].upper(), "".join(filter(str.isdigit, codigo[2] or "")))
+        if filtros:
+            return self._filtradas(texto, filtros)
         resposta = self.transporte.json(API, {"query": _BUSCA, "variables": {"nome": texto}})
         return _com_imagem(resposta["data"]["cards"])
 
+    def _filtradas(self, nome: str, filtros: Mapping[str, Sequence[str]]) -> list[CartaDoCatalogo]:
+        """O GraphQL não filtra pelo tipo: a lista vem da API REST e os dados, do GraphQL."""
+        consulta = {}
+        for chave, (parametro, prefixo) in _NA_API.items():
+            if chave in filtros:
+                valores = [_CATEGORIAS_NA_API.get(valor, valor) for valor in filtros[chave]]
+                consulta[parametro] = prefixo + "|".join(valores)
+        if nome:
+            consulta["name"] = nome
+        # Página maior: parte das cartas não tem imagem ou é do Pokémon TCG Pocket.
+        consulta |= {"pagination:page": 1, "pagination:itemsPerPage": 3 * LIMITE_DE_RESULTADOS}
+        lista = self.transporte.json(f"{FICHA}?{urlencode(consulta)}") or []
+        ids = [carta["id"] for carta in lista if carta.get("image") and f"/{_POCKET}/" not in carta["image"]]
+        return self._por_id(ids[:LIMITE_DE_RESULTADOS]) if ids else []
+
     def sugestoes(self) -> list[CartaDoCatalogo]:
-        # O TCGdex cadastra a coleção antes de ter as imagens: vale a mais recente que já tem.
+        # O TCGdex cadastra a coleção antes de ter as imagens.
         for colecao in self._colecoes()[:_COLECOES_RECENTES]:
             resposta = self.transporte.json(
                 API, {"query": _DA_COLECAO, "variables": {"colecao": f'{colecao["id"]}-'}})
@@ -74,7 +112,7 @@ class Tcgdex:
         return preco_medio((precos.get("cardmarket") or {}).get("avg"), "EUR", "Cardmarket")
 
     def _por_codigo(self, numero: str, total: str) -> list[CartaDoCatalogo]:
-        """As cartas de número `numero`; `total` é o que o vendedor já digitou do total da coleção."""
+        """`total` é o começo do total da coleção, como o vendedor digitou."""
         if total:
             colecoes = [colecao["id"] for colecao in self._colecoes()
                         if str(colecao["cardCount"]["official"]).startswith(total)]
@@ -89,7 +127,7 @@ class Tcgdex:
             and str((dados["set"].get("cardCount") or {}).get("official")).startswith(total))
 
     def _por_id(self, ids: list[str]) -> list[CartaDoCatalogo]:
-        """Várias cartas em um pedido só; o id da carta no TCGdex é "coleção-número"."""
+        """Várias cartas em um pedido só."""
         variaveis = {f"carta{n}": id for n, id in enumerate(ids)}
         parametros = ", ".join(f"${nome}: ID!" for nome in variaveis)
         pedidos = " ".join(f"{nome}: card(id: ${nome}) {{ {_CAMPOS} }}" for nome in variaveis)
@@ -98,12 +136,11 @@ class Tcgdex:
         return _com_imagem(resposta["data"].values())
 
     def _colecoes(self) -> list[dict]:
-        """As coleções de cartas físicas, da mais recente para a mais antiga."""
         return self._memoria.obter("coleções", self._consultar_colecoes)
 
     def _consultar_colecoes(self) -> list[dict]:
         resposta = self.transporte.json(API, {"query": _COLECOES, "variables": {}})
-        # O TCGdex também cataloga o Pokémon TCG Pocket, que não tem carta física para leiloar.
+        # O Pokémon TCG Pocket não tem carta física.
         fisicas = [colecao for colecao in resposta["data"]["sets"] if colecao["serie"]["id"] != _POCKET]
         return sorted(fisicas, key=lambda colecao: colecao.get("releaseDate") or "", reverse=True)
 
@@ -113,7 +150,7 @@ def _sem_zeros(numero: str) -> str:
 
 
 def _escritas(numero: str) -> list[str]:
-    """Como o TCGdex grava o número: sem zeros à esquerda nas coleções antigas, com três dígitos nas novas."""
+    """O TCGdex grava sem zeros à esquerda nas coleções antigas e com três dígitos nas novas."""
     if not numero.isdigit():
         return [numero]
     curto = _sem_zeros(numero)

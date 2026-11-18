@@ -1,0 +1,16 @@
+<ul class="entregas-pendentes">
+  {% for leilao in a_retirar %}
+  {% set arremate = leilao.transacao %}
+  <li>
+    <a class="entrega-pendente" href="{{ url_for('admin.entrega', numero=leilao.id) }}">
+      <img class="entrega-pendente__foto" src="{{ url_da_foto(leilao.carta.fotos[0]) }}" alt="" width="600" height="838" loading="lazy" decoding="async">
+      <span class="entrega-pendente__dados">
+        <span class="entrega-pendente__rotulo">Entrega pendente</span>
+        <strong class="entrega-pendente__nome" translate="no">{{ leilao.carta.nome }}</strong>
+        <span class="entrega-pendente__sub">Leilão {{ leilao.id }} <span aria-hidden="true">·</span> {{ arremate.comprador.nome }} pagou {{ arremate.valor|reais }} em {{ arremate.dataPagamento|data_hora }}</span>
+      </span>
+      <span class="entrega-pendente__acao">Confirmar entrega</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>

@@ -8,9 +8,11 @@ from flask import current_app, g, redirect, render_template, request, session, u
 
 from app.anuncio import PREFIXO_DAS_FOTOS
 from app.apresentacao import slug
+from app.correio import CorreioIndisponivel, aviso_de_pagamento
 from app.db import obter_conexao
 from app.dominio.contas import Administrador, Cliente, Usuario
 from app.repositorios import RepositorioClientes, RepositorioLeiloes, RepositorioLoja
+from app.repositorios.cobrancas import Cobranca, RepositorioCobrancas, StatusCobranca
 
 
 def repositorios() -> tuple[RepositorioClientes, RepositorioLeiloes]:
@@ -23,21 +25,23 @@ def loja() -> RepositorioLoja:
     return RepositorioLoja(obter_conexao())
 
 
+def cobrancas() -> RepositorioCobrancas:
+    return RepositorioCobrancas(obter_conexao())
+
+
 TAMANHO_DA_BUSCA = 80
 
 
 def jogos_da_loja() -> dict[str, str]:
-    """Os jogos do catálogo de cartas, pelo slug. No banco só existem os que já tiveram carta cadastrada."""
+    """Pelo catálogo: no banco só existem os jogos que já tiveram carta cadastrada."""
     return {slug(nome): nome for nome in current_app.config["CATALOGO"].jogos}
 
 
 def texto_da_busca() -> str:
-    """O nome ou o código que o visitante digitou na busca do topo."""
     return " ".join(request.args.get("q", "").split())[:TAMANHO_DA_BUSCA]
 
 
 def busca_do_topo() -> dict:
-    """Os jogos do combobox e o que a busca do topo mostra preenchido nas páginas de leilões."""
     nas_listas = request.endpoint in ("leiloes.listar", "leiloes.jogo")
     return {"jogos": jogos_da_loja(), "tamanho": TAMANHO_DA_BUSCA,
             "jogo": (request.view_args or {}).get("slug", "") if nas_listas else "",
@@ -45,7 +49,7 @@ def busca_do_topo() -> dict:
 
 
 def agora():
-    """O mesmo instante durante todo o pedido: quem lê os leilões vê o que o encerramento já tratou."""
+    """O mesmo instante durante todo o pedido."""
     if "agora" not in g:
         g.agora = current_app.config["RELOGIO"]()
     return g.agora
@@ -56,7 +60,6 @@ def _assinatura(usuario: Usuario) -> str:
 
 
 def usuario_atual() -> Usuario | None:
-    """Quem está logado: um cliente ou o administrador."""
     if "usuario" not in g:
         usuario_id = session.get("usuario_id")
         g.usuario = RepositorioClientes(obter_conexao()).usuario_por_id(usuario_id) if usuario_id else None
@@ -109,7 +112,7 @@ def destino_seguro(destino: str | None, padrao: str) -> str:
 
 
 def url_da_foto(foto: str) -> str:
-    """As fotos da carga inicial são arquivos estáticos; as das cartas cadastradas ficam na pasta de fotos."""
+    """As fotos da carga inicial são arquivos estáticos."""
     if foto.startswith(PREFIXO_DAS_FOTOS):
         return url_for("leiloes.foto", arquivo=foto.removeprefix(PREFIXO_DAS_FOTOS))
     return url_for("static", filename=foto)
@@ -121,13 +124,42 @@ def caminho_atual() -> str:
 
 def registrar_operacao(operacao: str, valor: Decimal | None = None, detalhe: str = "",
                        usuario: Usuario | None = None) -> None:
-    """RF19: grava no log quem fez a operação, de qual IP e quando."""
+    """RF19: quem fez a operação, de qual IP e quando."""
     usuario = usuario or usuario_atual()
     loja().registrar(operacao, agora(), usuario.id if usuario else None, valor, request.remote_addr, detalhe)
 
 
+def url_publica(endpoint: str, **valores) -> str | None:
+    """None sem endereço https público: o gateway não aceita os da própria máquina."""
+    base = (current_app.config.get("URL_PUBLICA") or request.url_root).rstrip("/")
+    partes = urlsplit(base)
+    if partes.scheme != "https" or partes.hostname in (None, "localhost", "127.0.0.1", "::1"):
+        return None
+    return base + url_for(endpoint, **valores)
+
+
+def registrar_pagamento_no_gateway(cobranca: Cobranca, leilao, gateway) -> None:
+    """RF19: no nome do comprador e sem IP (quem avisa é o gateway)."""
+    comprador = leilao.transacao.comprador
+    if cobranca.status == StatusCobranca.PAGA:
+        operacao, valor = "pagamento de arremate", leilao.transacao.valor
+    else:
+        operacao, valor = "pagamento creditado na carteira", cobranca.valor
+    loja().registrar(operacao, agora(), comprador.id, valor, None,
+                     f"leilão {leilao.id}: {leilao.carta.nome} ({gateway.nome}, pagamento {cobranca.pagamentoId})")
+
+
+def avisar_pagamento_confirmado(leilao) -> None:
+    """Roda depois de gravar o pagamento: uma falha no e-mail não desfaz o pagamento."""
+    assunto, texto = aviso_de_pagamento(leilao, url_publica("minha_conta.arremates"))
+    try:
+        current_app.config["CORREIO"].enviar(leilao.transacao.comprador.email, assunto, texto)
+    except CorreioIndisponivel as falha:
+        current_app.logger.warning("E-mail do código de retirada do leilão %s não enviado: %s", leilao.id, falha)
+
+
 def login_obrigatorio(rota):
-    """Páginas do cliente. O administrador não compra nem vende: é levado para a área dele."""
+    """O administrador não compra nem vende: vai para a área dele."""
     @wraps(rota)
     def protegida(*args, **kwargs):
         if administrador_atual() is not None:
@@ -140,7 +172,7 @@ def login_obrigatorio(rota):
 
 
 def admin_obrigatorio(rota):
-    """RN14 e RNF07: as funções administrativas só respondem ao administrador, conferido no servidor."""
+    """RN14 e RNF07: só o administrador, conferido no servidor."""
     @wraps(rota)
     def protegida(*args, **kwargs):
         if administrador_atual() is None:

@@ -7,7 +7,6 @@ import pytest
 from apoio import CSRF, criar_conta, lance_json, leilao_id
 from app.db import agora_utc, conectar, para_texto
 from app.carga_inicial import CLIENTES
-from app.rotas.leiloes import FILTROS_POR_JOGO
 
 
 @pytest.fixture
@@ -57,15 +56,12 @@ def test_pagina_de_jogo_sem_leiloes_e_de_jogo_desconhecido(cliente_http):
     assert cliente_http.get("/jogos/xadrez").status_code == 404
 
 
-def test_pagina_de_jogo_reserva_o_espaco_dos_filtros_proprios(cliente_http, app, monkeypatch):
-    assert "jogo__filtros" not in cliente_http.get("/jogos/pokemon").get_data(as_text=True)
-
-    # Qualquer template registrado para o jogo entra no painel; aqui, um que já existe.
-    monkeypatch.setitem(FILTROS_POR_JOGO, "pokemon", "_icones.html")
+def test_pagina_de_jogo_tem_o_painel_de_filtros_quando_ha_leiloes_para_filtrar(cliente_http):
+    """Os filtros de cada jogo estão em tests/test_filtros.py; aqui, só o lugar do painel na página."""
     com_filtros = cliente_http.get("/jogos/pokemon").get_data(as_text=True)
     assert 'class="jogo jogo--com-filtros"' in com_filtros
     assert '<aside class="jogo__filtros" aria-label="Filtros de Pokémon">' in com_filtros
-    assert "jogo__filtros" not in cliente_http.get("/jogos/yu-gi-oh").get_data(as_text=True)
+    assert "jogo__filtros" not in cliente_http.get("/jogos/one-piece-card-game").get_data(as_text=True)
 
 
 def test_jogo_do_combobox_leva_para_a_pagina_do_jogo(cliente_http):
@@ -124,9 +120,21 @@ def test_inicio_tem_o_destaque_os_jogos_e_os_leiloes_ativos(cliente_http):
     for slug, nome, total in (("pokemon", "Pokémon", 5), ("magic-the-gathering", "Magic: The Gathering", 5),
                               ("yu-gi-oh", "Yu-Gi-Oh!", 5), ("one-piece-card-game", "One Piece Card Game", 0)):
         assert re.search(rf'<a class="jogo-card" href="/jogos/{slug}">\s*<img class="jogo-card__capa" '
-                         rf'src="/static/img/jogos/{slug}.webp".*?<span class="jogo-card__nome">{re.escape(nome)}'
-                         rf'</span>\s*<span class="jogo-card__qtd">{total} leil', pagina, re.S)
-        assert cliente_http.get(f"/static/img/jogos/{slug}.webp").status_code == 200
+                         rf'src="/static/img/jogos/{slug}.webp".*?<span class="jogo-card__nome"><img '
+                         rf'class="jogo-card__logo" src="/static/img/jogos/logos/{slug}.webp" '
+                         rf'alt="{re.escape(nome)}"[^>]*></span>\s*<span class="jogo-card__qtd">{total} leil',
+                         pagina, re.S)
+        for arquivo in (f"/static/img/jogos/{slug}.webp", f"/static/img/jogos/logos/{slug}.webp"):
+            imagem = cliente_http.get(arquivo)
+            assert imagem.status_code == 200 and imagem.mimetype == "image/webp"
+            imagem.close()
+
+
+def test_jogo_sem_arquivo_de_logo_aparece_com_o_nome_escrito(cliente_http, app, monkeypatch, tmp_path):
+    monkeypatch.setattr(app, "static_folder", str(tmp_path))
+    pagina = cliente_http.get("/").get_data(as_text=True)
+    assert '<span class="jogo-card__nome">Pokémon</span>' in pagina
+    assert "jogo-card__logo" not in pagina and "jogo-card__capa" not in pagina
 
 
 def test_quero_vender_leva_a_entrar_ou_direto_a_criar_leilao(cliente_http):

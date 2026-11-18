@@ -30,6 +30,7 @@ def servidor(tmp_path):
         "CATALOGO": catalogo_de_teste(),
         "PASTA_DE_FOTOS": str(tmp_path / "fotos"),
         "PASTA_DO_CATALOGO": str(tmp_path / "catalogo"),
+        "MERCADO_PAGO_TOKEN": "",
     })
     conexao = conectar(str(banco))
     criar_conta(RepositorioClientes(conexao), nome="Teste Responsivo", email=EMAIL, telefone="48991234567",
@@ -269,7 +270,7 @@ def test_menu_superior_recolhe_num_botao_acessivel_por_teclado(servidor, browser
     ativo = page.evaluate("""() => { const el = document.activeElement;
         return {atual: el.getAttribute('aria-current'), texto: el.textContent.trim(),
                 fundo: getComputedStyle(el).backgroundColor, cor: getComputedStyle(el).color}; }""")
-    assert ativo == {"atual": "page", "texto": "Entrar", "fundo": "rgb(0, 56, 215)", "cor": "rgb(255, 255, 255)"}
+    assert ativo == {"atual": "page", "texto": "Entrar", "fundo": "rgb(0, 8, 129)", "cor": "rgb(255, 255, 255)"}
     assert all(a >= ALVO_MINIMO for _, a, _ in medir_todos(page, "#menu-principal .nav__item"))
     assert [texto.strip() for texto in page.locator("#menu-principal .nav__item").all_inner_texts()] == [
         "Meus lances", "Entrar", "Criar conta"]
@@ -291,7 +292,6 @@ def test_menu_no_desktop_fica_aberto_sem_botao(servidor, browser):
     assert not page.locator(".botao-menu").is_visible()
     for rotulo in ("Meus lances", "Entrar", "Criar conta"):
         assert page.locator("#menu-principal").get_by_text(rotulo, exact=True).is_visible()
-    # O título fica à esquerda, a busca no meio e a conta à direita, na mesma linha.
     marca, busca, menu = medir(page, ".marca"), medir(page, ".busca-topo"), medir(page, "#menu-principal")
     assert marca["esquerda"] < 60 and marca["direita"] < busca["esquerda"] and busca["direita"] < menu["esquerda"]
     assert menu["direita"] > 1200 and busca["largura"] >= 400

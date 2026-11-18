@@ -1,25 +1,34 @@
 {% from "_cartao.html" import cartao_leilao %}
 
-{# Quantas cartas a lista mostra, na frase que fica abaixo do título da página. #}
-{% macro resumo_dos_leiloes(cartoes, jogo=None, q="") %}
+{% macro resumo_dos_leiloes(cartoes, jogo=None, q="", filtrado=false) %}
 {% set de_jogo = (" de " ~ jogo.nome) if jogo else "" %}
-{% if q and cartoes %}
+{% set com_busca = (" com “" ~ q ~ "”") if q else "" %}
+{% if filtrado and cartoes %}
+  {{ cartoes|length }} {{ "carta" if cartoes|length == 1 else "cartas" }}{{ de_jogo }}{{ com_busca }} com os filtros escolhidos recebendo lances.
+{% elif filtrado %}
+  Nenhuma carta{{ de_jogo }}{{ com_busca }} com os filtros escolhidos recebendo lances neste momento.
+{% elif q and cartoes %}
   {{ cartoes|length }} {{ "carta" if cartoes|length == 1 else "cartas" }}{{ de_jogo }} com “{{ q }}” recebendo lances.
 {% elif q %}
   Nenhuma carta{{ de_jogo }} com “{{ q }}” recebendo lances neste momento.
 {% elif cartoes %}
-  {{ cartoes|length }} {{ "carta" if cartoes|length == 1 else "cartas" }}{{ de_jogo }} recebendo lances. As que terminam primeiro aparecem antes.
+  {{ cartoes|length }} {{ "carta" if cartoes|length == 1 else "cartas" }}{{ de_jogo }} recebendo lances.
 {% else %}
   Nenhuma carta{{ de_jogo }} recebendo lances neste momento.
 {% endif %}
 {% endmacro %}
 
-{# A grade de leilões ativos da página inicial, da busca e da página de cada jogo. #}
-{% macro lista_de_leiloes(cartoes, jogo=None, q="", nivel=2) %}
+{% macro lista_de_leiloes(cartoes, jogo=None, q="", nivel=2, filtrado=false) %}
 {% if cartoes %}
 <ul class="grade">
   {% for c in cartoes %}{{ cartao_leilao(c, nivel=nivel, prioridade=loop.index <= 5) }}{% endfor %}
 </ul>
+{% elif filtrado %}
+<div class="vazio">
+  <p class="vazio__titulo">Nenhum leilão ativo de {{ jogo.nome }} com esses filtros{% if q %} e “{{ q }}”{% endif %}.</p>
+  <p>Desmarque alguma opção: dentro de um filtro vale qualquer uma das marcadas, mas a carta precisa atender a todos os filtros.</p>
+  <p><a class="botao botao--secundario" href="{{ url_for('leiloes.jogo', slug=jogo.slug, q=q or none) }}">Limpar filtros</a></p>
+</div>
 {% elif q %}
 <div class="vazio">
   <p class="vazio__titulo">Nenhum leilão ativo{% if jogo %} de {{ jogo.nome }}{% endif %} com “{{ q }}”.</p>

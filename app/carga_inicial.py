@@ -101,13 +101,33 @@ CARTAS = [
 
 FOTOS = ("frente", "arte", "canto")
 
+# Chaves e valores dos filtros de cada jogo (app/catalogo).
+ATRIBUTOS = {
+    "Charizard": {"categoria": "Pokémon", "tipo": "Fire", "estagio": "Stage2", "raridade": "Rare"},
+    "Blastoise": {"categoria": "Pokémon", "tipo": "Water", "estagio": "Stage2", "raridade": "Rare"},
+    "Venusaur": {"categoria": "Pokémon", "tipo": "Grass", "estagio": "Stage2", "raridade": "Rare"},
+    "Pikachu": {"categoria": "Pokémon", "tipo": "Lightning", "estagio": "Basic", "raridade": "Common"},
+    "Mewtwo": {"categoria": "Pokémon", "tipo": "Psychic", "estagio": "Basic", "raridade": "Rare"},
+    "Lightning Bolt": {"cor": "Vermelha", "tipo": "Instant", "raridade": "Common"},
+    "Sol Ring": {"cor": "Incolor", "tipo": "Artifact", "raridade": "Uncommon"},
+    "Shivan Dragon": {"cor": "Vermelha", "tipo": "Creature", "raridade": "Rare"},
+    "Llanowar Elves": {"cor": "Verde", "tipo": "Creature", "raridade": "Common"},
+    "Counterspell": {"cor": "Azul", "tipo": "Instant", "raridade": "Uncommon"},
+    "Dark Magician": {"categoria": "Normal Monster", "atributo": "DARK", "tipo": "Spellcaster", "nivel": "7"},
+    "Blue-Eyes White Dragon": {"categoria": "Normal Monster", "atributo": "LIGHT", "tipo": "Dragon", "nivel": "8"},
+    "Red-Eyes Black Dragon": {"categoria": "Normal Monster", "atributo": "DARK", "tipo": "Dragon", "nivel": "7"},
+    "Exodia the Forbidden One": {"categoria": "Effect Monster", "atributo": "DARK", "tipo": "Spellcaster",
+                                 "nivel": "3"},
+    "Kuriboh": {"categoria": "Effect Monster", "atributo": "DARK", "tipo": "Fiend", "nivel": "1"},
+}
+
 
 def popular(conexao: sqlite3.Connection, agora: datetime, administrador: dict | None = None) -> None:
     clientes_repo = RepositorioClientes(conexao)
     leiloes_repo = RepositorioLeiloes(conexao, clientes_repo)
     RepositorioLoja(conexao).salvar_configuracao(ConfiguracaoLoja())
     if administrador:
-        # O lojista entra com um nome de usuário, guardado no lugar do e-mail.
+        # O login do lojista fica na coluna do e-mail.
         clientes_repo.adicionar_administrador(Administrador(
             nome="Administrador da loja", email=administrador["login"].strip().lower(), telefone="",
             senhaHash=gerar_hash(administrador["senha"], administrador["iteracoes"]),
@@ -125,7 +145,8 @@ def popular(conexao: sqlite3.Connection, agora: datetime, administrador: dict | 
     for (jogo, nome, edicao, condicao, descricao, arquivo, vendedor, inicial,
          inicio, fim, lances) in CARTAS:
         carta = Carta(nome=nome, jogo=jogos[jogo], edicao=edicao, condicao=condicao,
-                      descricao=descricao, vendedor=clientes[vendedor], status=StatusCarta.EM_LEILAO)
+                      descricao=descricao, vendedor=clientes[vendedor], status=StatusCarta.EM_LEILAO,
+                      atributos=list(ATRIBUTOS[nome].items()))
         for foto in FOTOS:
             carta.adicionarFoto(f"img/cartas/{arquivo}-{foto}.webp")
         leilao = Leilao(carta=carta, lanceInicial=Decimal(inicial), incrementoMinimo=INCREMENTO_DA_LOJA,

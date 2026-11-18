@@ -1,62 +1,10 @@
 {% extends "admin/_layout.html" %}
-{% import "_icones.html" as icone %}
 {% block titulo %}Entregas · Administração{% endblock %}
 {% block secao %}
 <h2 id="titulo-secao">Entrega de cartas</h2>
-<form class="busca" method="get" action="{{ url_for('admin.entregas') }}" role="search">
-  <label for="codigo">Código de retirada apresentado pelo comprador</label>
-  <div class="busca__linha">
-    <input id="codigo" name="codigo" type="search" value="{{ codigo }}" autocomplete="off" spellcheck="false"
-           autocapitalize="characters" maxlength="12" placeholder="8 letras e números…" required>
-    <button class="botao botao--primario" type="submit">Procurar</button>
-  </div>
-</form>
-
-{% if codigo and not encontrado %}
-<p class="aviso" role="alert">{{ icone.alerta() }}<span>Nenhum arremate tem o código {{ codigo }}. Confira com o comprador.</span></p>
-{% elif encontrado %}
-{% set arremate = encontrado.transacao %}
-<div class="saldo entrega">
-  <p class="rotulo">Leilão {{ encontrado.id }} <span aria-hidden="true">·</span> código {{ arremate.codigoRetirada }}</p>
-  <p class="entrega__carta" translate="no">{{ encontrado.carta.nome }} <span aria-hidden="true">·</span> {{ encontrado.carta.edicao }}</p>
-  <dl class="ficha">
-    <div><dt>Comprador</dt><dd>{{ arremate.comprador.nome }}</dd></div>
-    <div><dt>CPF do comprador</dt><dd>{{ arremate.comprador.cpf|cpf }}</dd></div>
-    <div><dt>Valor do arremate</dt><dd>{{ arremate.valor|reais }}</dd></div>
-    <div><dt>Taxa da loja</dt><dd>{{ arremate.taxa|reais }}</dd></div>
-    <div><dt>Repasse ao vendedor ({{ arremate.vendedor.nome }})</dt><dd>{{ arremate.valorLiquido|reais }}</dd></div>
-    <div><dt>Situação</dt><dd>{{ arremate.status|capitalize }}</dd></div>
-  </dl>
-  {% if arremate.status == "pago" %}
-  <form method="post" action="{{ url_for('admin.entregas') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="codigo" value="{{ arremate.codigoRetirada }}">
-    <button class="botao botao--primario" type="submit">Registrar entrega e repassar ao vendedor</button>
-  </form>
-  {% elif arremate.status == "entregue" %}
-  <p class="lance__aviso">{{ icone.ok() }}<span>Carta entregue em {{ arremate.dataEntrega|data_hora }}. O repasse já foi creditado.</span></p>
-  {% elif arremate.status == "aguardando pagamento" %}
-  <p class="lance__aviso">{{ icone.alerta() }}<span>Este arremate ainda não foi pago. A carta só pode ser entregue depois do pagamento.</span></p>
-  {% else %}
-  <p class="lance__aviso">{{ icone.alerta() }}<span>Este arremate não foi pago no prazo. A carta voltou para o vendedor.</span></p>
-  {% endif %}
-</div>
-{% endif %}
-
-<h3 class="subtitulo">Pagos, aguardando retirada</h3>
+<p class="admin__nota">Cartas pagas que ainda estão na loja. Quando o comprador vier retirar, abra a entrega dele e confira o código de retirada que ele apresentar.</p>
 {% if a_retirar %}
-<div class="rolagem">
-<table class="tabela tabela--larga">
-  <caption class="vh">Arremates pagos cuja carta ainda está na loja</caption>
-  <thead><tr><th scope="col">Leilão</th><th scope="col">Carta</th><th scope="col">Comprador</th><th scope="col" class="direita">Valor</th><th scope="col">Pago em</th></tr></thead>
-  <tbody>
-    {% for leilao in a_retirar %}
-    <tr><td>{{ leilao.id }}</td><td translate="no">{{ leilao.carta.nome }}</td><td>{{ leilao.transacao.comprador.nome }}</td><td class="direita">{{ leilao.transacao.valor|reais }}</td><td>{{ leilao.transacao.dataPagamento|data_hora }}</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-<p class="campo__ajuda">A entrega só é registrada com o código de retirada, que fica com o comprador.</p>
+{% include "admin/_entregas_pendentes.html" %}
 {% else %}
 <div class="vazio vazio--compacto"><p class="vazio__titulo">Nenhuma carta paga aguardando retirada.</p></div>
 {% endif %}

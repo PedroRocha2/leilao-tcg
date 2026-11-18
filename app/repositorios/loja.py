@@ -8,7 +8,7 @@ from app.dominio.loja import ConfiguracaoLoja, LogOperacao
 
 
 class RepositorioLoja:
-    """As configurações da loja (RF15) e o log de auditoria (RF19)."""
+    """RF15 e RF19."""
 
     def __init__(self, conexao: sqlite3.Connection):
         self.conexao = conexao

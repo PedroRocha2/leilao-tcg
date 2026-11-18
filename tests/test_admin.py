@@ -171,13 +171,12 @@ def test_configuracao_da_loja_recusa_valores_sem_sentido(valores):
         ConfiguracaoLoja(**valores)
 
 
-# ---------------------------------------------------------------------------------------------------------
-# Pela aplicação: o lojista na área de administração e o que os clientes fazem para alimentar essa área.
+# --- Pela aplicação ---
 
-GET_DO_ADMIN = ["/admin", "/admin/leiloes", "/admin/entregas", "/admin/saques", "/admin/usuarios", "/admin/usuarios/2",
-                "/admin/cartas", "/admin/cartas/1", "/admin/historico", "/admin/financeiro", "/admin/configuracoes",
-                "/admin/auditoria"]
-POST_DO_ADMIN = ["/admin/leiloes/1/aprovar", "/admin/leiloes/1/recusar", "/admin/entregas", "/admin/saques/1/pagar",
+GET_DO_ADMIN = ["/admin", "/admin/leiloes", "/admin/entregas", "/admin/entregas/1", "/admin/saques", "/admin/usuarios",
+                "/admin/usuarios/2", "/admin/cartas", "/admin/cartas/1", "/admin/historico", "/admin/financeiro",
+                "/admin/configuracoes", "/admin/auditoria"]
+POST_DO_ADMIN = ["/admin/leiloes/1/aprovar", "/admin/leiloes/1/recusar", "/admin/entregas/1", "/admin/saques/1/pagar",
                  "/admin/saques/1/recusar", "/admin/usuarios/2", "/admin/usuarios/2/bloquear", "/admin/cartas/1",
                  "/admin/cartas/1/remover", "/admin/configuracoes"]
 
@@ -223,12 +222,13 @@ def vender(app, ana, banco, lance="200,00"):
     return numero, bruno
 
 
-def pagar(navegador, numero, **dados):
-    return navegador.post(f"/minha-conta/arremates/{numero}/pagar", data={"csrf_token": CSRF, "forma": "pix", **dados})
+def pagar(navegador, numero, follow_redirects=False, **dados):
+    return navegador.post(f"/minha-conta/arremates/{numero}/pagar", follow_redirects=follow_redirects,
+                          data={"csrf_token": CSRF, "forma": "pix", **dados})
 
 
-def entregar(admin, codigo):
-    return admin.post("/admin/entregas", data={"csrf_token": CSRF, "codigo": codigo},
+def entregar(admin, numero, codigo):
+    return admin.post(f"/admin/entregas/{numero}", data={"csrf_token": CSRF, "codigo": codigo},
                       follow_redirects=True).get_data(as_text=True)
 
 
@@ -394,7 +394,7 @@ def test_rf04_lojista_remove_cadastro_invalido_mas_nao_carta_com_leilao_em_andam
 
     recusado = admin.post("/admin/cartas/1/remover", data={"csrf_token": CSRF},
                           follow_redirects=True).get_data(as_text=True)
-    assert "Só dá para remover a carta cujo leilão ainda aguarda aprovação ou foi recusado." in recusado
+    assert "Só dá para remover a carta cujo leilão ainda aguarda aprovação, foi recusado ou foi cancelado." in recusado
     assert banco.execute("SELECT COUNT(*) FROM leiloes WHERE id = 1").fetchone()[0] == 1
 
 
@@ -431,16 +431,31 @@ def test_rf15_configuracao_invalida_nao_e_gravada(admin, banco, campo, valor, me
     assert tuple(banco.execute("SELECT * FROM configuracao_loja").fetchone()) == (1, "10.00", 500, 48, 24)
 
 
-def test_rf10_arremate_mostra_ao_vencedor_valor_prazo_e_codigo_de_retirada(app, ana, banco):
+def test_rf10_arremate_mostra_ao_vencedor_valor_e_prazo_e_o_codigo_de_retirada_so_depois_de_pagar(app, ana, banco):
     numero, bruno = vender(app, ana, banco)
     arremate = transacao_de(banco, numero)
     assert (arremate["valor_centavos"], arremate["taxa_centavos"], arremate["liquido_centavos"]) == (20000, 2000, 18000)
     assert arremate["status"] == "aguardando pagamento" and len(arremate["codigo_retirada"]) == 8
 
     pagina = bruno.get("/minha-conta/arremates").get_data(as_text=True)
-    for trecho in ("R$ 200,00", "Aguardando pagamento", "Pague até", arremate["codigo_retirada"],
+    for trecho in ("R$ 200,00", "Aguardando pagamento", "Pague até",
+                   "O código de retirada aparece aqui depois do pagamento.",
                    f'href="/minha-conta/arremates/{numero}/pagar"'):
         assert trecho in pagina
+    codigo = arremate["codigo_retirada"]
+    assert codigo not in pagina
+    assert codigo not in bruno.get(f"/minha-conta/arremates/{numero}/pagar").get_data(as_text=True)
+    assert codigo not in bruno.get(f"/leiloes/{numero}").get_data(as_text=True)
+
+    confirmacao = pagar(bruno, numero, follow_redirects=True).get_data(as_text=True)
+    assert f"Retire Charizard na loja com o código {codigo}." in confirmacao
+    paga = bruno.get("/minha-conta/arremates").get_data(as_text=True)
+    assert f'translate="no">{codigo}</strong>. Apresente na loja para retirar a carta.' in paga
+    assert codigo not in ana.get("/vender").get_data(as_text=True)
+
+
+def test_vendedor_ve_o_arremate_e_quanto_vai_receber(app, ana, banco):
+    vender(app, ana, banco)
     vendedora = ana.get("/vender").get_data(as_text=True)
     assert "Arrematada (aguardando pagamento)" in vendedora and "Você recebe R$ 180,00" in vendedora
 
@@ -507,22 +522,41 @@ def test_rf12_entrega_com_o_codigo_repassa_o_valor_liquido_ao_vendedor(app, ana,
     numero, bruno = vender(app, ana, banco)
     codigo = transacao_de(banco, numero)["codigo_retirada"]
 
-    assert "A carta só pode ser entregue depois do pagamento do arremate." in entregar(admin, codigo)
-    assert "ainda não foi pago" in admin.get(f"/admin/entregas?codigo={codigo}").get_data(as_text=True)
+    card = f'<a class="entrega-pendente" href="/admin/entregas/{numero}">'
+    assert "A carta só pode ser entregue depois do pagamento do arremate." in entregar(admin, numero, codigo)
+    nao_pago = admin.get(f"/admin/entregas/{numero}").get_data(as_text=True)
+    assert "ainda não foi pago" in nao_pago and 'name="codigo"' not in nao_pago
+    for url in ("/admin/leiloes", "/admin/entregas"):
+        assert card not in admin.get(url).get_data(as_text=True), "sem pagamento, não há entrega pendente"
     pagar(bruno, numero)
 
-    lista = admin.get("/admin/entregas").get_data(as_text=True)
-    assert "Charizard" in lista and codigo not in lista
-    assert ">Entregas&nbsp;<span" in lista
+    for url in ("/admin/leiloes", "/admin/entregas"):
+        lista = admin.get(url).get_data(as_text=True)
+        for trecho in (card, "Entrega pendente", "Charizard", "Ana Souza pagou R$\xa0200,00", ">Entregas&nbsp;<span"):
+            assert trecho in lista, (url, trecho)
+        assert codigo not in lista and 'name="codigo"' not in lista
+    assert "Entregas pendentes" in admin.get("/admin/leiloes").get_data(as_text=True)
 
-    assert "Nenhum arremate tem este código de retirada." in entregar(admin, "ZZZZ9999")
-    consulta = admin.get(f"/admin/entregas?codigo={codigo.lower()}").get_data(as_text=True)
-    for trecho in ("Ana Souza", "111.444.777-35", "R$ 200,00", "R$ 20,00", "R$ 180,00",
-                   "Registrar entrega e repassar ao vendedor"):
+    consulta = admin.get(f"/admin/entregas/{numero}").get_data(as_text=True)
+    assert codigo not in consulta, "o código fica só com o comprador"
+    for trecho in ("Ana Souza", "111.444.777-35", 'name="codigo"', "R$ 200,00", "R$ 20,00", "R$ 180,00",
+                   "Confirmar entrega e repassar ao vendedor"):
         assert trecho in consulta
-    assert carteira_de(banco, "ana@teste.com") == (0, 0)
 
-    assert "Entrega de Charizard registrada." in entregar(admin, codigo)
+    for errado, mensagem in (("ZZZZ9999", "O código de retirada não confere com este arremate."),
+                             ("  ", "Informe o código de retirada que o comprador apresentou.")):
+        assert mensagem in entregar(admin, numero, errado)
+    sem_lances = banco.execute(
+        "SELECT id FROM leiloes WHERE id NOT IN (SELECT leilao_id FROM transacoes) LIMIT 1").fetchone()["id"]
+    for sem_arremate in (sem_lances, 999):
+        assert admin.get(f"/admin/entregas/{sem_arremate}").status_code == 404
+        assert admin.post(f"/admin/entregas/{sem_arremate}",
+                          data={"csrf_token": CSRF, "codigo": codigo}).status_code == 404
+    assert transacao_de(banco, numero)["status"] == "pago" and carteira_de(banco, "ana@teste.com") == (0, 0)
+
+    registrada = entregar(admin, numero, f" {codigo.lower()} ")
+    assert "Entrega de Charizard registrada." in registrada and card not in registrada
+    assert "Leilões aguardando aprovação" in registrada, "depois da entrega, o lojista volta para a página de leilões"
     arremate = transacao_de(banco, numero)
     assert arremate["status"] == "entregue" and arremate["data_entrega"] is not None
     assert leiloes_criados(banco)[0]["status_da_carta"] == "entregue"
@@ -533,8 +567,11 @@ def test_rf12_entrega_com_o_codigo_repassa_o_valor_liquido_ao_vendedor(app, ana,
     assert "Entregue (repasse efetuado)" in ana.get("/vender").get_data(as_text=True)
     assert "Carta retirada em" in bruno.get("/minha-conta/arremates").get_data(as_text=True)
 
-    assert "Esta carta já foi entregue." in entregar(admin, codigo)
+    assert "Esta carta já foi entregue." in entregar(admin, numero, codigo)
     assert carteira_de(banco, "ana@teste.com") == (18000, 0)
+    entregue = admin.get(f"/admin/entregas/{numero}").get_data(as_text=True)
+    assert "Carta entregue em" in entregue and 'name="codigo"' not in entregue
+    assert "Nenhuma carta paga aguardando retirada." in admin.get("/admin/entregas").get_data(as_text=True)
 
 
 def test_rf21_prazo_de_pagamento_vencido_marca_descumprimento_e_devolve_a_carta(app, ana, admin, banco):
@@ -549,8 +586,7 @@ def test_rf21_prazo_de_pagamento_vencido_marca_descumprimento_e_devolve_a_carta(
     cliente = id_de(banco, "bruno@teste.com")
     assert banco.execute("SELECT descumprimentos FROM clientes WHERE usuario_id = ?", (cliente,)).fetchone()[0] == 1
     assert pagar(bruno, numero).status_code == 302
-    assert "Este arremate não foi pago no prazo" in admin.get(
-        f"/admin/entregas?codigo={transacao_de(banco, numero)['codigo_retirada']}").get_data(as_text=True)
+    assert "Este arremate não foi pago no prazo" in admin.get(f"/admin/entregas/{numero}").get_data(as_text=True)
 
     assert "Devolvida ao vendedor" in ana.get("/vender").get_data(as_text=True)
     assert "Devolvido (não pago)" in admin.get("/admin/historico").get_data(as_text=True)
@@ -560,7 +596,7 @@ def test_rf21_prazo_de_pagamento_vencido_marca_descumprimento_e_devolve_a_carta(
 def test_rf22_cliente_pede_saque_e_o_lojista_paga_ou_recusa(app, ana, admin, banco):
     numero, bruno = vender(app, ana, banco)
     pagar(bruno, numero)
-    entregar(admin, transacao_de(banco, numero)["codigo_retirada"])
+    entregar(admin, numero, transacao_de(banco, numero)["codigo_retirada"])
 
     assert "Solicitar saque" in ana.get("/minha-conta/carteira").get_data(as_text=True)
     demais = pedir_saque(ana, "180,01")
@@ -604,7 +640,7 @@ def test_rf16_historico_lista_os_leiloes_finalizados_com_o_desfecho(app, ana, ad
     assert "Nenhum leilão finalizado ainda." in admin.get("/admin/historico").get_data(as_text=True)
     numero, bruno = vender(app, ana, banco)
     pagar(bruno, numero)
-    entregar(admin, transacao_de(banco, numero)["codigo_retirada"])
+    entregar(admin, numero, transacao_de(banco, numero)["codigo_retirada"])
 
     pagina = admin.get("/admin/historico").get_data(as_text=True)
     linha = pagina[pagina.index(f'href="/leiloes/{numero}"'):]
@@ -617,7 +653,7 @@ def test_rf16_historico_lista_os_leiloes_finalizados_com_o_desfecho(app, ana, ad
 def test_rf18_extrato_financeiro_soma_o_periodo(app, ana, admin, banco):
     numero, bruno = vender(app, ana, banco)
     pagar(bruno, numero)
-    entregar(admin, transacao_de(banco, numero)["codigo_retirada"])
+    entregar(admin, numero, transacao_de(banco, numero)["codigo_retirada"])
     pedir_saque(ana, "100,00")
     admin.post(f"/admin/saques/{banco.execute('SELECT id FROM saques').fetchone()['id']}/pagar",
                data={"csrf_token": CSRF})
@@ -639,7 +675,7 @@ def test_rf18_extrato_financeiro_soma_o_periodo(app, ana, admin, banco):
 def test_rf19_log_registra_usuario_operacao_valor_ip_e_hora(app, ana, admin, banco):
     numero, bruno = vender(app, ana, banco)
     pagar(bruno, numero)
-    entregar(admin, transacao_de(banco, numero)["codigo_retirada"])
+    entregar(admin, numero, transacao_de(banco, numero)["codigo_retirada"])
 
     registradas = operacoes(banco)
     for operacao in ("cadastro de cliente", "login", "criação de leilão", "aprovação de leilão", "lance",

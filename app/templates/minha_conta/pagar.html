@@ -10,6 +10,20 @@
   <p class="saldo__nota">Pague até {{ item.prazo }}. Depois do pagamento, retire a carta na loja com o código de retirada.</p>
 </div>
 
+{% if cobranca %}
+<section class="cobranca" aria-labelledby="titulo-cobranca">
+  <h3 id="titulo-cobranca">Pagamento iniciado no {{ gateway }}</h3>
+  <p>Você abriu uma cobrança de {{ cobranca.valor }} em {{ cobranca.quando }}. Se ainda não pagou, continue no {{ gateway }}; se já pagou, peça para a loja conferir.</p>
+  <div class="cobranca__acoes">
+    <a class="botao botao--primario" href="{{ cobranca.url }}" target="_blank" rel="noopener">Pagar no {{ gateway }}<span class="vh"> (abre em outra aba)</span></a>
+    <form method="post" action="{{ url_for('minha_conta.conferir_pagamento', leilao_id=item.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="botao botao--secundario" type="submit">Já paguei: conferir pagamento</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
 <form class="formulario formulario--estreito" method="post" action="{{ url_for('minha_conta.pagar', leilao_id=item.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   {% if erro %}<p class="campo__erro" role="alert">{{ icone.alerta() }}<span>{{ erro }}</span></p>{% endif %}
@@ -19,6 +33,10 @@
     <span>Usar o saldo da carteira ({{ saldo }} disponíveis){% if not saldo_cobre %}; faltam {{ restante }}{% endif %}</span>
   </label>
   {% endif %}
+  {% if gateway %}
+  <p class="formulario__nota">{% if tem_saldo and saldo_cobre %}Se você não usar o saldo, o pagamento{% elif tem_saldo %}O que o saldo não cobrir{% else %}O pagamento{% endif %} é feito no {{ gateway }}, com Pix ou cartão. O arremate fica pago quando o {{ gateway }} confirma{% if tem_saldo %}; o saldo da carteira só é debitado nessa hora{% endif %}.</p>
+  <button class="botao botao--primario botao--largo" type="submit">{% if cobranca %}Abrir outra cobrança{% else %}Pagar {{ item.valor }}{% endif %}</button>
+  {% else %}
   <fieldset class="opcoes">
     <legend>{% if tem_saldo and saldo_cobre %}Forma de pagamento, se não usar o saldo{% elif tem_saldo %}Forma de pagamento do que o saldo não cobrir{% else %}Forma de pagamento{% endif %}</legend>
     {% for opcao in formas %}
@@ -27,5 +45,6 @@
   </fieldset>
   <p class="formulario__nota">Este ambiente não faz cobrança de verdade: o gateway de pagamento confirma o Pix ou o cartão na hora.</p>
   <button class="botao botao--primario botao--largo" type="submit">Pagar {{ item.valor }}</button>
+  {% endif %}
 </form>
 {% endblock %}

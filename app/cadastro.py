@@ -22,10 +22,7 @@ def normalizar_email(email: str | None) -> str:
 
 def conferir_contato(repositorio: RepositorioClientes, nome: str, email: str, telefone: str,
                      exceto: int | None = None) -> tuple[dict[str, str], dict[str, str]]:
-    """Nome, e-mail e telefone normalizados e os erros de cada um.
-
-    `exceto` é o id de quem já usa o e-mail: o próprio cliente, quando o administrador edita o cadastro.
-    """
+    """`exceto`: o próprio cliente, quando o administrador edita o cadastro."""
     dados = {"nome": " ".join((nome or "").split()), "email": normalizar_email(email),
              "telefone": somente_digitos(telefone)}
     erros: dict[str, str] = {}
@@ -73,7 +70,7 @@ def criar_conta(repositorio: RepositorioClientes, *, nome: str, email: str, tele
     try:
         return repositorio.adicionar(cliente)
     except sqlite3.IntegrityError as erro:
-        # Outro cadastro com o mesmo e-mail ou CPF entrou entre a verificação e a gravação.
+        # Outro cadastro com o mesmo e-mail ou CPF entrou depois da verificação.
         campo = "cpf" if "cpf" in str(erro) else "email"
         mensagem = "Este CPF já tem uma conta." if campo == "cpf" else "Este e-mail já tem uma conta."
         raise CadastroInvalido({campo: mensagem}) from erro

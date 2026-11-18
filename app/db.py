@@ -8,7 +8,10 @@ import click
 from flask import current_app, g
 
 SCHEMA = Path(__file__).with_name("schema.sql")
-VERSAO_DO_ESQUEMA = 4
+# schema.sql é a versão base; cada incremento também atualiza bancos existentes, sem perder dados.
+VERSAO_BASE = 4
+INCREMENTOS = {5: Path(__file__).with_name("schema_v5.sql"), 6: Path(__file__).with_name("schema_v6.sql")}
+VERSAO_DO_ESQUEMA = max(INCREMENTOS)
 
 
 def agora_utc() -> datetime:
@@ -70,23 +73,65 @@ def _versao(caminho: Path) -> int:
 
 def preparar_banco(caminho: str, recriar: bool = False, agora: datetime | None = None,
                    administrador: dict | None = None) -> None:
-    """Cria o banco com a carga inicial. `administrador` traz login, senha e iteracoes da conta do lojista."""
+    """`administrador`: login, senha e iteracoes da conta do lojista."""
     from app.carga_inicial import popular
 
     arquivo = Path(caminho)
-    if arquivo.exists() and (recriar or _versao(arquivo) != VERSAO_DO_ESQUEMA):
+    # Versão anterior à base ou desconhecida não tem como ser atualizada.
+    if arquivo.exists() and (recriar or not VERSAO_BASE <= _versao(arquivo) <= VERSAO_DO_ESQUEMA):
         arquivo.unlink()
-    if arquivo.exists():
-        return
+    novo = not arquivo.exists()
     arquivo.parent.mkdir(parents=True, exist_ok=True)
     conexao = conectar(caminho)
     try:
-        conexao.executescript(SCHEMA.read_text(encoding="utf-8"))
-        with transacao(conexao):
-            popular(conexao, agora or agora_utc(), administrador)
-            conexao.execute(f"PRAGMA user_version = {VERSAO_DO_ESQUEMA}")
+        if novo:
+            # A versão só é marcada no fim: se a carga falhar, o banco é recriado na próxima vez.
+            conexao.executescript(SCHEMA.read_text(encoding="utf-8"))
+            for versao in sorted(INCREMENTOS):
+                conexao.executescript(INCREMENTOS[versao].read_text(encoding="utf-8"))
+            with transacao(conexao):
+                popular(conexao, agora or agora_utc(), administrador)
+                conexao.execute(f"PRAGMA user_version = {VERSAO_DO_ESQUEMA}")
+        else:
+            _atualizar_esquema(conexao)
     finally:
         conexao.close()
+
+
+def _atualizar_esquema(conexao: sqlite3.Connection) -> None:
+    atual = conexao.execute("PRAGMA user_version").fetchone()[0]
+    for versao in sorted(versao for versao in INCREMENTOS if versao > atual):
+        # Incremento, preenchimento e versão na mesma transação.
+        try:
+            conexao.executescript("BEGIN;\n" + INCREMENTOS[versao].read_text(encoding="utf-8"))
+            if versao == 6:
+                _preencher_atributos(conexao)
+            conexao.execute(f"PRAGMA user_version = {versao}")
+        except BaseException:
+            if conexao.in_transaction:
+                conexao.execute("ROLLBACK")
+            raise
+        conexao.execute("COMMIT")
+
+
+def _preencher_atributos(conexao: sqlite3.Connection) -> None:
+    """Cartas de vendedores: os atributos saem da descrição sugerida ("Tipo: Fire; Raridade: Rare.")."""
+    from app.carga_inicial import ATRIBUTOS, CARTAS
+    from app.catalogo import atributos_da_descricao
+
+    da_carga = {(nome, edicao) for _, nome, edicao, *_ in CARTAS}
+    cartas = conexao.execute(
+        "SELECT c.id, c.nome, c.edicao, c.descricao, j.nome AS jogo FROM cartas c JOIN jogos j ON j.id = c.jogo_id"
+        " WHERE c.id NOT IN (SELECT carta_id FROM carta_atributos)").fetchall()
+    with transacao(conexao):
+        for carta in cartas:
+            if (carta["nome"], carta["edicao"]) in da_carga:
+                pares = ATRIBUTOS[carta["nome"]].items()
+            else:
+                pares = atributos_da_descricao(carta["jogo"], carta["descricao"])
+            conexao.executemany(
+                "INSERT OR IGNORE INTO carta_atributos (carta_id, chave, valor) VALUES (?, ?, ?)",
+                [(carta["id"], chave, valor) for chave, valor in pares])
 
 
 def administrador_da_configuracao() -> dict:

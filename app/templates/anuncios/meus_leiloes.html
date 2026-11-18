@@ -27,6 +27,30 @@
       <div><dt>Início</dt><dd>{{ item.inicio }}</dd></div>
       <div><dt>Fim previsto</dt><dd>{{ item.fim }}</dd></div>
     </dl>
+    {% if item.pode_cancelar %}
+    <div class="meu-lance__rodape">
+      <details class="cancelar">
+        <summary class="botao botao--perigo botao--menor">Cancelar leilão<span class="vh"> de {{ item.nome }}</span></summary>
+        <form class="cancelar__confirmacao" method="post" action="{{ url_for('anuncios.cancelar', leilao_id=item.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <p>O leilão sai do ar e não dá para desfazer. Se a carta já está na loja, retire-a no balcão.</p>
+          <button class="botao botao--perigo botao--menor" type="submit">Sim, cancelar o leilão<span class="vh"> de {{ item.nome }}</span></button>
+        </form>
+      </details>
+    </div>
+    {% endif %}
+    {% if item.pode_excluir %}
+    <div class="meu-lance__rodape">
+      <details class="cancelar">
+        <summary class="botao botao--perigo botao--menor">Excluir do site<span class="vh"> o leilão de {{ item.nome }}</span></summary>
+        <form class="cancelar__confirmacao" method="post" action="{{ url_for('anuncios.excluir', leilao_id=item.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <p>A carta, as fotos e o leilão são apagados do site e não dá para desfazer. Se a carta ainda está na loja, retire-a no balcão antes.</p>
+          <button class="botao botao--perigo botao--menor" type="submit">Sim, excluir<span class="vh"> o leilão de {{ item.nome }}</span></button>
+        </form>
+      </details>
+    </div>
+    {% endif %}
   </li>
   {% endfor %}
 </ul>

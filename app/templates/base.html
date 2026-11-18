@@ -5,10 +5,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#252B3D">
+  <meta name="theme-color" content="#090B26">
   <meta name="description" content="{% block descricao %}Leilões de cartas colecionáveis de Pokémon, Magic, Yu-Gi-Oh! e One Piece, com a loja como intermediária.{% endblock %}">
   <title>{% block titulo %}{% endblock %} · Leilão TCG</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/marca/favicon-32.png') }}">
+  <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='img/marca/favicon-48.png') }}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/marca/favicon-192.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/marca/apple-touch-icon.png') }}">
   <script>document.documentElement.classList.add("js")</script>
   <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
@@ -22,7 +25,10 @@
   {% set proximo_menu = request.args.get("proximo") if pagina_de_acesso else caminho_atual %}
   <header class="topo">
     <div class="container topo__barra">
-      <a class="marca" href="{{ url_for('leiloes.inicio') }}" translate="no">Leilão TCG</a>
+      <a class="marca" href="{{ url_for('leiloes.inicio') }}" translate="no">
+        <img class="marca__logo" src="{{ url_for('static', filename='img/marca/cardhammer-132.webp') }}" alt="" width="54" height="54">
+        <img class="marca__nome" src="{{ url_for('static', filename='img/marca/cardhammer-nome.webp') }}" alt="CardHammer" width="160" height="21">
+      </a>
       <form class="busca-topo" method="get" action="{{ url_for('leiloes.listar') }}" role="search" aria-label="Buscar leilões ativos">
         <label class="vh" for="busca-jogo">Jogo</label>
         <select id="busca-jogo" name="jogo">
@@ -91,7 +97,7 @@
   <footer class="rodape">
     <div class="container">
       <p><span translate="no">Leilão&nbsp;TCG</span> · projeto da disciplina Engenharia de Software I (UFSC).</p>
-      <p>Imagens das cartas © The Pokémon Company, Wizards of the Coast, Konami e Bandai, obtidas em pokemontcg.io, TCGdex, Scryfall, YGOPRODeck, OPTCG API e onepiece-cardgame.com.</p>
+      <p>Imagens das cartas © The Pokémon Company, Wizards of the Coast, Konami e Bandai, obtidas em pokemontcg.io, TCGdex, Scryfall, YGOPRODeck, OPTCG API e onepiece-cardgame.com. As logos dos jogos são marcas registradas das mesmas empresas, usadas aqui só para identificar cada jogo.</p>
     </div>
   </footer>
 </body>

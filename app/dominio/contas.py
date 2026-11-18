@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -36,7 +37,7 @@ class Usuario(ABC):
 
 @dataclass(kw_only=True, eq=False)
 class Administrador(Usuario):
-    """O lojista. RN14: só ele acessa as funções administrativas, e não compra nem vende."""
+    """RN14: o lojista administra, mas não compra nem vende."""
 
 
 @dataclass(kw_only=True, eq=False)
@@ -67,19 +68,20 @@ class Cliente(Usuario):
         return self.ativo and not self.bloqueado
 
     def cadastrarCarta(self, nome: str, jogo: Jogo, edicao: str, condicao: str, descricao: str,
-                       fotos: list[str]) -> Carta:
+                       fotos: list[str], atributos: Iterable[tuple[str, str]] = ()) -> Carta:
         """RN04: a carta só vale para leilão com nome, jogo, edição, condição e fotos."""
         faltando = [rotulo for rotulo, valor in (("nome", nome), ("jogo", jogo), ("edição", edicao),
                                                  ("condição", condicao), ("fotos", fotos)) if not valor]
         if faltando:
             raise ValueError(f"RN04: a carta precisa de {', '.join(faltando)}.")
         return Carta(nome=nome, jogo=jogo, edicao=edicao, condicao=condicao, descricao=descricao,
-                     vendedor=self, status=StatusCarta.AGUARDANDO_DEPOSITO, fotos=list(fotos))
+                     vendedor=self, status=StatusCarta.AGUARDANDO_DEPOSITO, fotos=list(fotos),
+                     atributos=list(atributos))
 
     def criarLeilao(self, carta: Carta, lanceInicial: Decimal, dataInicio: datetime, dataFimPrevista: datetime,
                     incrementoMinimo: Decimal, agora: datetime | None = None,
                     taxaPercentual: Decimal = TAXA_DA_LOJA) -> Leilao:
-        """O leilão nasce pendente: só entra em andamento depois do depósito e da aprovação (RN12)."""
+        """RN12: nasce pendente, até o depósito e a aprovação."""
         if not self.podeCriarLeilao():
             raise ValueError("RN15: uma conta bloqueada não pode criar leilões.")
         if not carta.vendedor.ehOMesmo(self):
@@ -92,7 +94,7 @@ class Cliente(Usuario):
 
     def pagarArremate(self, transacao: Transacao, comSaldo: Decimal, noGateway: Decimal, forma: str | None,
                       agora: datetime) -> None:
-        """RF11. RN18: o saldo da carteira só é debitado na confirmação do pagamento."""
+        """RF11. RN18: o saldo só é debitado na confirmação."""
         if not transacao.comprador.ehOMesmo(self):
             raise OperacaoRecusada("Só quem arrematou a carta pode pagar este arremate.")
         if comSaldo > 0 and not self.carteira.possuiSaldo(comSaldo):
@@ -102,5 +104,5 @@ class Cliente(Usuario):
             self.carteira.debitar(comSaldo, "Pagamento de arremate", agora)
 
     def registrarDescumprimento(self) -> None:
-        """RN06: o comprador não pagou o arremate dentro do prazo."""
+        """RN06."""
         self.descumprimentos += 1

@@ -79,9 +79,13 @@
     });
   }
 
+  var contando = false;
+  // Idempotente: a lista de leilões pode ser trocada sem ligar outro relógio.
   function iniciarContagens() {
     if (!document.querySelector("[data-contagem]")) return;
     atualizarContagens();
+    if (contando) return;
+    contando = true;
     window.setInterval(atualizarContagens, 1000);
   }
 
@@ -139,7 +143,7 @@
     if (!galeria) return;
     var fotos = Array.prototype.map.call(
       galeria.querySelector("[data-fotos]").content.querySelectorAll("[data-url]"),
-      function (el) { return { url: el.dataset.url, descricao: el.dataset.descricao }; }
+      function (el) { return { url: el.dataset.url, descricao: el.dataset.descricao, inteira: "inteira" in el.dataset }; }
     );
     var principal = galeria.querySelector("[data-foto-principal]");
     var link = galeria.querySelector("[data-ampliar]");
@@ -152,6 +156,7 @@
       atual = (indice + fotos.length) % fotos.length;
       principal.src = fotos[atual].url;
       principal.alt = fotos[atual].descricao;
+      principal.classList.toggle("galeria__foto--inteira", fotos[atual].inteira);
       link.href = fotos[atual].url;
       miniaturas.forEach(function (m, i) { m.setAttribute("aria-pressed", String(i === atual)); });
       atualizarDialogo();
@@ -226,7 +231,6 @@
       definirTexto("[data-total-lances]", String(e.total_lances));
       definirTexto("[data-minimo]", reais(e.minimo_centavos));
       definirTexto("[data-regra-inicial]", e.tem_lances ? "Lance inicial " + reais(e.lance_inicial_centavos) : "Nenhum lance ainda");
-      definirTexto("[data-minimo-regra]", e.tem_lances ? "(maior lance + incremento mínimo)" : "(o lance inicial)");
       definirTexto("[data-situacao]", e.situacao);
       definirTexto("[data-fim-quando]", e.fim_quando);
       var contagem = painel.querySelector("[data-contagem]");
@@ -329,7 +333,6 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (dados) {
           if (!dados || !dados.estado) return;
-          // O leilão começou ou terminou: o painel muda inteiro, então a página é recarregada.
           if (dados.estado.aberto !== aberto) { window.location.reload(); return; }
           aplicar(dados);
           if (dados.estado.valor_centavos !== valorConhecido) {
@@ -342,40 +345,53 @@
     }, 5000);
   }
 
-  // Criar leilão: o filtro troca as cartas enquanto o vendedor digita. Sem JavaScript, o formulário recarrega a página.
+  // Da resposta só entram na página as regiões [data-resultados].
   function iniciarFiltroDeCartas() {
     var form = document.querySelector("[data-filtro-cartas]");
-    var resultados = document.querySelector("[data-resultados]");
-    if (!form || !resultados || typeof DOMParser !== "function" || typeof AbortController !== "function") return;
-    var campo = form.elements.q;
+    var regioes = Array.prototype.slice.call(document.querySelectorAll("[data-resultados]"));
+    if (!form || !regioes.length || typeof DOMParser !== "function" || typeof AbortController !== "function" ||
+        typeof FormData !== "function" || typeof URLSearchParams !== "function") return;
+    var campo = form.querySelector('input[type="search"]');
     var status = form.querySelector("[data-filtro-status]");
-    var minimo = campo.minLength > 0 ? campo.minLength : 1;
-    var pedido = campo.value.trim();
+    var minimo = campo && campo.minLength > 0 ? campo.minLength : 1;
     var espera = null;
     var controle = null;
+    form.classList.add("filtra-sozinho");
+
+    function endereco() {
+      var consulta = new URLSearchParams();
+      new FormData(form).forEach(function (valor, nome) {
+        valor = String(valor).trim().replace(/\s+/g, " ");
+        if (valor) consulta.append(nome, valor);
+      });
+      var url = new URL(form.action, window.location.href);
+      url.search = consulta.toString();
+      return url;
+    }
+    var pedido = endereco().search;
 
     function filtrar() {
       window.clearTimeout(espera);
-      var texto = campo.value.trim().replace(/\s+/g, " ");
-      if (texto === pedido || (texto && texto.length < minimo)) return;
-      pedido = texto;
-      var url = new URL(form.action, window.location.href);
-      url.searchParams.set("jogo", form.elements.jogo.value);
-      if (texto) url.searchParams.set("q", texto);
+      var texto = campo ? campo.value.trim() : "";
+      if (texto && texto.length < minimo) return;
+      var url = endereco();
+      if (url.search === pedido) return;
+      pedido = url.search;
       if (controle) controle.abort();
       var meu = controle = new AbortController();
-      resultados.setAttribute("aria-busy", "true");
+      regioes.forEach(function (regiao) { regiao.setAttribute("aria-busy", "true"); });
 
       fetch(url, { headers: { Accept: "text/html" }, credentials: "same-origin", signal: meu.signal })
         .then(function (resposta) { return resposta.text(); })
         .then(function (html) {
-          var novos = new DOMParser().parseFromString(html, "text/html").querySelector("[data-resultados]");
-          // Sem a região de resultados a resposta é outra página (a sessão expirou): o navegador vai até ela.
-          if (!novos) { window.location.assign(url); return; }
-          resultados.innerHTML = novos.innerHTML;
+          var novas = new DOMParser().parseFromString(html, "text/html").querySelectorAll("[data-resultados]");
+          // Sem [data-resultados] a resposta é outra página (sessão expirada).
+          if (novas.length !== regioes.length) { window.location.assign(url); return; }
+          regioes.forEach(function (regiao, i) { regiao.innerHTML = novas[i].innerHTML; });
           history.replaceState(null, "", url);
-          var resumo = resultados.querySelector("[data-resumo]");
-          if (status && resumo) status.textContent = resumo.textContent.trim();
+          iniciarContagens();
+          var resumo = document.querySelector("[data-resumo]");
+          if (status && resumo) status.textContent = resumo.textContent.trim().replace(/\s+/g, " ");
         })
         .catch(function (erro) {
           if (erro.name !== "AbortError") window.location.assign(url);
@@ -383,18 +399,28 @@
         .finally(function () {
           if (controle !== meu) return;
           controle = null;
-          resultados.removeAttribute("aria-busy");
+          regioes.forEach(function (regiao) { regiao.removeAttribute("aria-busy"); });
         });
     }
 
-    campo.addEventListener("input", function () {
-      window.clearTimeout(espera);
-      espera = window.setTimeout(filtrar, 350);
+    if (campo) {
+      campo.addEventListener("input", function () {
+        window.clearTimeout(espera);
+        espera = window.setTimeout(filtrar, 350);
+      });
+    }
+    form.addEventListener("change", function (e) {
+      if (e.target !== campo) filtrar();
     });
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       filtrar();
     });
+
+    // No celular o painel vem antes da lista: começa recolhido se nada estiver marcado.
+    var dobra = form.querySelector("[data-filtros]");
+    if (dobra && window.matchMedia && window.matchMedia("(max-width: 900px)").matches &&
+        !form.querySelector("input:checked")) dobra.open = false;
   }
 
   function iniciarAvisoAoSair() {
@@ -410,8 +436,79 @@
     });
   }
 
+  // Reduz as fotos grandes antes do envio; sem suporte, vai o arquivo original.
+  function iniciarFotosDoVendedor() {
+    var campo = document.querySelector("[data-fotos-do-vendedor]");
+    if (!campo) return;
+    var entrada = campo.querySelector('input[type="file"]');
+    var previas = campo.querySelector("[data-previas]");
+    var aviso = campo.querySelector("[data-previas-aviso]");
+    var maximo = Number(campo.dataset.maximo) || 6;
+    var LADO_MAXIMO = 1600;
+    var enderecos = [];
+
+    function reduzir(arquivo) {
+      if (typeof createImageBitmap !== "function") return Promise.resolve(arquivo);
+      return createImageBitmap(arquivo, { imageOrientation: "from-image" }).then(function (imagem) {
+        var escala = Math.min(1, LADO_MAXIMO / Math.max(imagem.width, imagem.height));
+        if (escala === 1 && arquivo.size <= 1024 * 1024) return arquivo;
+        var tela = document.createElement("canvas");
+        tela.width = Math.round(imagem.width * escala);
+        tela.height = Math.round(imagem.height * escala);
+        var contexto = tela.getContext("2d");
+        contexto.fillStyle = "#fff";
+        contexto.fillRect(0, 0, tela.width, tela.height);
+        contexto.drawImage(imagem, 0, 0, tela.width, tela.height);
+        return new Promise(function (resolver) {
+          tela.toBlob(function (reduzida) {
+            if (!reduzida || reduzida.size >= arquivo.size) return resolver(arquivo);
+            resolver(new File([reduzida], arquivo.name.replace(/\.[^.]*$/, "") + ".jpg", { type: "image/jpeg" }));
+          }, "image/jpeg", 0.85);
+        });
+      }).catch(function () { return arquivo; });
+    }
+
+    function mostrar(arquivos) {
+      enderecos.forEach(function (endereco) { URL.revokeObjectURL(endereco); });
+      enderecos = arquivos.map(function (arquivo) { return URL.createObjectURL(arquivo); });
+      previas.textContent = "";
+      enderecos.forEach(function (endereco, i) {
+        var item = document.createElement("li");
+        var imagem = document.createElement("img");
+        imagem.src = endereco;
+        imagem.alt = "Foto " + (i + 1) + ": " + arquivos[i].name;
+        imagem.width = imagem.height = 72;
+        item.appendChild(imagem);
+        previas.appendChild(item);
+      });
+      previas.hidden = !arquivos.length;
+    }
+
+    entrada.addEventListener("change", function () {
+      var escolhidos = Array.prototype.slice.call(entrada.files);
+      var arquivos = escolhidos.slice(0, maximo);
+      var cortou = escolhidos.length > maximo;
+      mostrar(arquivos);
+      aviso.textContent = cortou
+        ? "Só as " + maximo + " primeiras fotos serão enviadas."
+        : arquivos.length + (arquivos.length === 1 ? " foto escolhida." : " fotos escolhidas.");
+      if (typeof DataTransfer !== "function") return;
+      Promise.all(arquivos.map(reduzir)).then(function (prontos) {
+        // O vendedor trocou as fotos durante a redução: vale a escolha nova.
+        var atuais = Array.prototype.slice.call(entrada.files);
+        if (atuais.length !== escolhidos.length || atuais.some(function (f, i) { return f !== escolhidos[i]; })) return;
+        try {
+          var lista = new DataTransfer();
+          prontos.forEach(function (arquivo) { lista.items.add(arquivo); });
+          entrada.files = lista.files;
+        } catch (erro) { /* O navegador recusou a troca: seguem os originais. */ }
+      });
+    });
+  }
+
   iniciarMenu();
   iniciarFiltroDeCartas();
+  iniciarFotosDoVendedor();
   iniciarAvisoAoSair();
   iniciarContagens();
   iniciarAbas();
